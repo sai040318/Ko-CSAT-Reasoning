@@ -1,0 +1,50 @@
+# 기본 설정
+mode: train # train, inference, evaluate
+seed: 42
+exp_name: baseline_gemma_exp
+log_dir: logs/experiments
+
+# 데이터셋 설정
+dataset:
+  type: baseline
+  path: data/train.csv
+
+# 모델 설정 (Baseline: beomi/gemma-ko-2b)
+model:
+  type: baseline
+  model_name_or_path: "beomi/gemma-ko-2b"
+  use_peft: true
+  max_seq_length: 1024
+  
+  # LoRA 설정 (Baseline과 동일하게 맞춤)
+  lora_r: 6
+  lora_alpha: 8
+  lora_dropout: 0.05
+  lora_target_modules: ['q_proj', 'k_proj']
+
+# 학습 설정 (SFTConfig 전달용)
+training:
+  output_dir: outputs_gemma
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1 # Baseline에는 명시되지 않았으나 배치1이면 보통 4~8 권장 (Baseline 따르려면 1)
+  learning_rate: 2e-5 # 중요: Baseline 값
+  weight_decay: 0.01
+  logging_steps: 1
+  eval_steps: 50 # Baseline은 epoch 단위 평가지만 편의상 step 지정 가능
+  save_strategy: "epoch"
+  evaluation_strategy: "epoch"
+  save_total_limit: 2
+  save_only_model: true
+  fp16: true # Baseline은 torch.float16 사용
+  report_to: "none"
+
+# 추론 설정
+inference:
+  max_new_tokens: 1
+  batch_size: 1
+
+# RAG 설정 (미사용)
+rag:
+  use: false
