@@ -53,34 +53,47 @@ class BaselineDataset(BaseDataset):
             self.load_data()
 
         def tokenize_fn(examples):
-            full_inputs = []
-            for p, q, q_plus, c in zip(examples['paragraph'], examples['question'], examples['question_plus'], examples['choices']):
-                # 선택지 리스트를 문자열로 변환 (예: 1. ㄱ, 2. ㄴ ...)
-                choices_str = "\n".join([f"{i+1}. {choice}" for i, choice in enumerate(c)])
+            # 1. 데이터를 Chat Message 형식으로 변환
+            chat_messages = []
+            for p, q, q_plus, c, a in zip(examples['paragraph'], examples['question'], examples['question_plus'], examples['choices'], examples['answer']):
+                choices_string = "\n".join([f"{idx + 1} - {choice}" for idx, choice in enumerate(c)])
                 
-                # 보기(question_plus) 처리
-                q_plus_str = f"<보기>: {q_plus}" if q_plus and str(q_plus).strip() else ""
-                
-                # 최종 프롬프트 구성 (prompt_templates.py의 구조를 단순화하여 반영)
-                text = f"지문:\n{p}\n\n질문: {q}\n{q_plus_str}\n\n선택지:\n{choices_str}\n\n정답:"
-                full_inputs.append(text)
+                # <보기> 유무에 따른 사용자 메시지 구성
+                if q_plus and str(q_plus).strip():
+                    user_content = f"지문:\n{p}\n\n질문:\n{q}\n\n<보기>:\n{q_plus}\n\n선택지:\n{choices_string}\n\n1, 2, 3, 4, 5 중에 하나를 정답으로 고르세요.\n정답:"
+                else:
+                    user_content = f"지문:\n{p}\n\n질문:\n{q}\n\n선택지:\n{choices_string}\n\n1, 2, 3, 4, 5 중에 하나를 정답으로 고르세요.\n정답:"
 
+                message = [
+                    {"role": "system", "content": "지문을 읽고 질문의 답을 구하세요."},
+                    {"role": "user", "content": user_content},
+                ]
+                
+                # 학습 시에는 정답(assistant) 메시지 추가 (단, preprocess 단계에서는 입력만 만들 수도 있음)
+                # 여기서는 SFTTrainer가 labels를 처리하도록 user+assistant 구조를 만들거나
+                # CompletionOnlyLM 등을 위해 full text를 만듦
+                if a is not None:
+                    message.append({"role": "assistant", "content": str(a)})
+                
+                chat_messages.append(message)
+
+            # 2. Chat Template 적용 및 토큰화
+            # apply_chat_template은 리스트의 리스트를 받으면 배치를 처리함
+            formatted_prompts = [
+                tokenizer.apply_chat_template(msg, tokenize=False, add_generation_prompt=False) 
+                for msg in chat_messages
+            ]
+            
             model_inputs = tokenizer(
-                full_inputs, 
-                max_length=max_length, 
-                truncation=True, 
+                formatted_prompts,
+                max_length=max_length,
+                truncation=True,
                 padding="max_length"
             )
             
-            # 정답(레이블) 토큰화 (Generation 학습 시 필요)
-            if 'answer' in examples and examples['answer'][0] is not None:
-                labels = tokenizer(
-                    [str(a) for d, a in zip(examples['id'], examples['answer'])],
-                    max_length=8, # 정답은 보통 짧으므로
-                    truncation=True,
-                    padding="max_length"
-                )
-                model_inputs["labels"] = labels["input_ids"]
+            # SFTTrainer는 input_ids를 받아서 labels를 자동 생성(DataCollatorForCompletionOnlyLM 사용 시)
+            # 여기서는 labels를 명시적으로 만들지 않고 input_ids만 반환해도 됨
+            # (Trainer의 DataCollator가 처리)
                 
             return model_inputs
 

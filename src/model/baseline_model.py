@@ -45,14 +45,19 @@ class BaselineModel(BaseModel):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
+        
+        # Gemma Chat Template 설정 (Baseline과 동일하게)
+        self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
 
         if self.use_peft:
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
                 inference_mode=False,
-                r=8,
-                lora_alpha=32,
-                lora_dropout=0.1
+                r=kwargs.get("lora_r", 6),
+                lora_alpha=kwargs.get("lora_alpha", 8),
+                lora_dropout=kwargs.get("lora_dropout", 0.05),
+                target_modules=kwargs.get("lora_target_modules", ['q_proj', 'k_proj']),
+                bias="none",
             )
             self.model = get_peft_model(self.model, peft_config)
             self.model.print_trainable_parameters()
