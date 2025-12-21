@@ -57,7 +57,7 @@ class BaselineModel(BaseModel):
                 lora_alpha=kwargs.get("lora_alpha", 8),
                 lora_dropout=kwargs.get("lora_dropout", 0.05),
                 target_modules=kwargs.get("lora_target_modules", ['q_proj', 'k_proj']),
-                bias="none",
+                bias=kwargs.get("lora_bias", "none"),
             )
             self.model = get_peft_model(self.model, peft_config)
             self.model.print_trainable_parameters()
@@ -66,15 +66,25 @@ class BaselineModel(BaseModel):
         """
         TRL의 SFTTrainer를 사용한 학습 수행
         """
+        # kwargs에 있는 설정들을 SFTConfig로 전달
+        # config.yaml의 training 섹션에 있는 모든 키가 kwargs로 들어옴
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
-            num_train_epochs=kwargs.get("num_train_epochs", 1),
-            per_device_train_batch_size=kwargs.get("per_device_train_batch_size", 4),
-            learning_rate=kwargs.get("learning_rate", 2e-4),
-            logging_steps=10,
-            save_strategy="epoch",
-            fp16=True,
-            # dataset_text_field="text", # 만약 전처리된 텍스트 컬럼을 쓸 경우 지정
+            num_train_epochs=kwargs.get("num_train_epochs", 3),
+            per_device_train_batch_size=kwargs.get("per_device_train_batch_size", 1),
+            per_device_eval_batch_size=kwargs.get("per_device_eval_batch_size", 1),
+            gradient_accumulation_steps=kwargs.get("gradient_accumulation_steps", 1),
+            learning_rate=kwargs.get("learning_rate", 2e-5),
+            lr_scheduler_type=kwargs.get("lr_scheduler_type", "cosine"),
+            weight_decay=kwargs.get("weight_decay", 0.01),
+            logging_steps=kwargs.get("logging_steps", 1),
+            eval_steps=kwargs.get("eval_steps", 50),
+            save_strategy=kwargs.get("save_strategy", "epoch"),
+            evaluation_strategy=kwargs.get("evaluation_strategy", "epoch"),
+            save_total_limit=kwargs.get("save_total_limit", 2),
+            save_only_model=kwargs.get("save_only_model", True),
+            fp16=kwargs.get("fp16", True),
+            report_to=kwargs.get("report_to", "none"),
             max_seq_length=kwargs.get("max_seq_length", 1024),
             packing=False,
         )

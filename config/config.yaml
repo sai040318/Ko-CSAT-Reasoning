@@ -2,7 +2,6 @@
 mode: train # train, inference, evaluate
 seed: 42
 exp_name: baseline_gemma_exp
-log_dir: logs/experiments
 
 # 데이터셋 설정
 dataset:
@@ -20,7 +19,8 @@ model:
   lora_r: 6
   lora_alpha: 8
   lora_dropout: 0.05
-  lora_target_modules: ['q_proj', 'k_proj']
+  lora_target_modules: ['q_proj', 'k_proj'] # 중요: 타겟 모듈 명시
+  lora_bias: "none"
 
 # 학습 설정 (SFTConfig 전달용)
 training:
@@ -28,16 +28,17 @@ training:
   num_train_epochs: 3
   per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
-  gradient_accumulation_steps: 1 # Baseline에는 명시되지 않았으나 배치1이면 보통 4~8 권장 (Baseline 따르려면 1)
-  learning_rate: 2e-5 # 중요: Baseline 값
+  gradient_accumulation_steps: 1
+  learning_rate: 2e-5
+  lr_scheduler_type: "cosine" # 중요: Baseline은 cosine 사용
   weight_decay: 0.01
-  logging_steps: 1
-  eval_steps: 50 # Baseline은 epoch 단위 평가지만 편의상 step 지정 가능
+  logging_steps: 1 # Baseline은 1 step마다 로깅
+  eval_steps: 50
   save_strategy: "epoch"
   evaluation_strategy: "epoch"
   save_total_limit: 2
   save_only_model: true
-  fp16: true # Baseline은 torch.float16 사용
+  fp16: true
   report_to: "none"
 
 # 추론 설정

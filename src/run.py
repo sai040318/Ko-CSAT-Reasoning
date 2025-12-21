@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
-from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY, METRIC_REGISTRY
+from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
 from src.utils.utils import set_seed
 
 # Hydra를 통해 설정 파일을 로드합니다.
