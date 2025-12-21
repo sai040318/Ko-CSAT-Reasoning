@@ -53,21 +53,20 @@ class BaselineDataset(BaseDataset):
             self.load_data()
 
         def tokenize_fn(examples):
-            # 질문과 보기(question_plus)를 결합하여 최종 질문 생성
-            full_questions = []
-            for q, q_plus in zip(examples['question'], examples['question_plus']):
-                if q_plus and str(q_plus).strip():
-                    full_questions.append(f"{q} <보기>: {q_plus}")
-                else:
-                    full_questions.append(q)
+            full_inputs = []
+            for p, q, q_plus, c in zip(examples['paragraph'], examples['question'], examples['question_plus'], examples['choices']):
+                # 선택지 리스트를 문자열로 변환 (예: 1. ㄱ, 2. ㄴ ...)
+                choices_str = "\n".join([f"{i+1}. {choice}" for i, choice in enumerate(c)])
+                
+                # 보기(question_plus) 처리
+                q_plus_str = f"<보기>: {q_plus}" if q_plus and str(q_plus).strip() else ""
+                
+                # 최종 프롬프트 구성 (prompt_templates.py의 구조를 단순화하여 반영)
+                text = f"지문:\n{p}\n\n질문: {q}\n{q_plus_str}\n\n선택지:\n{choices_str}\n\n정답:"
+                full_inputs.append(text)
 
-            # 지문(paragraph)과 최종 질문을 결합하여 모델 입력 생성
-            inputs = [
-                f"지문: {p}\n질문: {q}" 
-                for p, q in zip(examples['paragraph'], full_questions)
-            ]
             model_inputs = tokenizer(
-                inputs, 
+                full_inputs, 
                 max_length=max_length, 
                 truncation=True, 
                 padding="max_length"
