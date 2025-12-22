@@ -10,6 +10,7 @@ from transformers import (
 )
 from peft import LoraConfig, get_peft_model, TaskType
 from trl import SFTTrainer, SFTConfig
+from omegaconf import ListConfig
 from src.model.base_model import BaseModel
 from src.utils.registry import MODEL_REGISTRY
 
@@ -50,13 +51,18 @@ class BaselineModel(BaseModel):
         self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
 
         if self.use_peft:
+            # Hydra의 ListConfig를 일반 Python 리스트로 변환
+            target_modules = kwargs.get("lora_target_modules", ['q_proj', 'k_proj'])
+            if isinstance(target_modules, ListConfig):
+                target_modules = list(target_modules)
+            
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
                 inference_mode=False,
                 r=kwargs.get("lora_r", 6),
                 lora_alpha=kwargs.get("lora_alpha", 8),
                 lora_dropout=kwargs.get("lora_dropout", 0.05),
-                target_modules=kwargs.get("lora_target_modules", ['q_proj', 'k_proj']),
+                target_modules=target_modules,
                 bias=kwargs.get("lora_bias", "none"),
             )
             self.model = get_peft_model(self.model, peft_config)
@@ -106,21 +112,20 @@ class BaselineModel(BaseModel):
             learning_rate=kwargs.get("learning_rate", 2e-5),
             lr_scheduler_type=kwargs.get("lr_scheduler_type", "cosine"),
             weight_decay=kwargs.get("weight_decay", 0.01),
-            logging_steps=kwargs.get("logging_steps", 1),
+            logging_steps=kwargs.get("logging_steps", 100),
             eval_steps=kwargs.get("eval_steps", 50),
             save_strategy=kwargs.get("save_strategy", "epoch"),
-            evaluation_strategy=kwargs.get("evaluation_strategy", "epoch"),
+            eval_strategy=kwargs.get("evaluation_strategy", "epoch"),  # evaluation_strategy -> eval_strategy
             save_total_limit=kwargs.get("save_total_limit", 2),
             save_only_model=kwargs.get("save_only_model", True),
-            fp16=kwargs.get("fp16", True),
+            fp16=kwargs.get("fp16", True),  # fp16 기본값
+            bf16=kwargs.get("bf16", False),  # bf16 기본값은 False
             report_to=kwargs.get("report_to", "none"),
-            max_seq_length=kwargs.get("max_seq_length", 1024),
             packing=False,
         )
 
         trainer = SFTTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
