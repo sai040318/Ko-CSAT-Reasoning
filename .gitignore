@@ -4,3 +4,20 @@
 .DS_Store
 outputs_gemma/
 ./data/
+
+# ===== Python cache =====
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# ===== Output / Result directories =====
+output/
+outputs/
+**/output/
+**/outputs/
+
+# ===== Experiment artifacts =====
+checkpoints/
+**/checkpoints/
+logs/
+**/logs/
