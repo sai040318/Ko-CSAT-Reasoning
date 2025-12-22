@@ -33,26 +33,18 @@ def main(cfg: DictConfig):
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "right"
     
-    # 2. Dataset 로드 및 전처리
-    dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
-    dataset = dataset_cls(cfg.dataset.path)
-    #processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
-    processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length, template=cfg.prompt.name)
-
-    # 3. Model 초기화
-    model_cls = MODEL_REGISTRY.get(cfg.model.type)
-    model = model_cls(
-        model_name_or_path=cfg.model.model_name_or_path,
-        use_peft=cfg.model.use_peft,
-        **cfg.training # 학습 관련 설정 전달
-    )
-
     # 4. 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
-        processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        # Train 모드: Config에 정의된 train용 전처리 옵션 전달 (filter=True, gen_prompt=False)
+        processed_dataset = dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.train
+        )
 
         # 2-2. Model 초기화
         model_cls = MODEL_REGISTRY.get(cfg.model.type)
@@ -106,7 +98,12 @@ def main(cfg: DictConfig):
         print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
         test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         test_dataset = test_dataset_cls(test_dataset_path)
-        processed_test_dataset = test_dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        processed_test_dataset = test_dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.inference
+        )
         
         # 2-4. 추론 수행
         predictions = model.predict(
@@ -137,7 +134,12 @@ def main(cfg: DictConfig):
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
-        processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        processed_dataset = dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.inference
+        )
 
         # 2-2. Model 초기화
         model_cls = MODEL_REGISTRY.get(cfg.model.type)

@@ -44,11 +44,14 @@ class BaselineDataset(BaseDataset):
         self.dataset = DatasetDict({"train": dataset})
         return self.dataset
 
-    def preprocess(self, tokenizer: Any, max_length: int = 512, template: str = "base", **kwargs) -> DatasetDict:
+    def preprocess(self, tokenizer: Any, max_length: int = 512, template: str = "base", 
+                   add_generation_prompt: bool = False, filter_over_length: bool = False, **kwargs) -> DatasetDict:
         """
         텍스트 데이터를 모델이 이해할 수 있는 토큰 ID로 변환합니다.
-        (Generation Task를 위해 간단한 토큰화만 수행하거나, 
-        SFT용 프롬프트를 구성하는 용도로 확장 가능합니다.)
+        
+        Args:
+            add_generation_prompt (bool): Inference 시 답변 생성을 위한 프롬프트 추가 여부
+            filter_over_length (bool): max_length를 초과하는 데이터 필터링 여부
         """
         if self.dataset is None:
             self.load_data()
@@ -61,15 +64,14 @@ class BaselineDataset(BaseDataset):
             )
 
             # 2. Chat Template 적용 및 토큰화
-            # apply_chat_template은 리스트의 리스트를 받으면 배치를 처리함
             formatted_prompts = [
-                tokenizer.apply_chat_template(msg, tokenize=False, add_generation_prompt=False) 
+                tokenizer.apply_chat_template(msg, tokenize=False, add_generation_prompt=add_generation_prompt) 
                 for msg in chat_messages
             ]
             
             model_inputs = tokenizer(
                 formatted_prompts,
-                truncation=False,
+                truncation=False, # Baseline처럼 truncation 없이 토크나이징 후 필터링
                 padding=False
             )
 
@@ -87,5 +89,12 @@ class BaselineDataset(BaseDataset):
             load_from_cache_file=True,
             desc="Tokenizing"
         )
+        
+        # 3. 데이터 필터링 (설정에 따라 동작)
+        if filter_over_length:
+            original_len = len(processed_dataset["train"])
+            processed_dataset = processed_dataset.filter(lambda x: len(x["input_ids"]) <= max_length)
+            filtered_len = len(processed_dataset["train"])
+            print(f"📊 데이터 필터링 완료: {original_len} -> {filtered_len} (제외된 샘플 수: {original_len - filtered_len})")
 
         return processed_dataset

@@ -13,6 +13,15 @@ hydra:
 dataset:
   type: baseline
   path: data/train.csv
+  
+  # 전처리 옵션
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: true
+    inference:
+      add_generation_prompt: true
+      filter_over_length: false
 
 # 프롬프트 탬플릿(txt) 설정
 prompt:
