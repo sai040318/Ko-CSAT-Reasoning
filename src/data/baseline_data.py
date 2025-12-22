@@ -86,23 +86,20 @@ class BaselineDataset(BaseDataset):
             
             model_inputs = tokenizer(
                 formatted_prompts,
-                max_length=max_length,
-                truncation=True,
-                padding="max_length"
+                truncation=False,
+                padding=False
             )
-            
-            # SFTTrainer는 input_ids를 받아서 labels를 자동 생성(DataCollatorForCompletionOnlyLM 사용 시)
-            # 여기서는 labels를 명시적으로 만들지 않고 input_ids만 반환해도 됨
-            # (Trainer의 DataCollator가 처리)
-                
+
             return model_inputs
 
         # 데이터셋의 모든 샘플에 토큰화 적용
-        # 'id' 컬럼은 추론 시 필요하므로 제거하지 않음
-        columns_to_remove = [col for col in self.dataset["train"].column_names if col != "id"]
         processed_dataset = self.dataset.map(
             tokenize_fn,
             batched=True,
-            remove_columns=columns_to_remove
+            remove_columns=self.dataset["train"].column_names,
+            num_proc=4,
+            load_from_cache_file=True,
+            desc="Tokenizing"
         )
+
         return processed_dataset
