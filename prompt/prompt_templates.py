@@ -1,23 +1,80 @@
-# 기본 프롬프팅 : BASE_PROMPT
+from pathlib import Path
+import re
 
-# 기본 프롬프팅
-BASE_PROMPT = {
-    "system_msg": "지문을 읽고 질문의 답을 구하세요.",
-    "user_msg": """지문:
-{paragraph}
+TEMPLATE_DIR = Path(__file__).parent
 
-참고:
-{reference}
 
-질문:
-{question}
+def load_template(name: str) -> str:
+    path = TEMPLATE_DIR / f"{name}.txt"
+    if not path.exists():
+        raise ValueError(f"Template not found: {name}")
+    return path.read_text(encoding="utf-8")
 
-<보기>:
-{question_plus}
 
-선택지:
-{choices}
+def parse_chat_template(text: str) -> list[dict]:
+    """
+    <SYSTEM>...</SYSTEM>, <USER>...</USER> 등을
+    [{"role": "...", "content": "..."}] 형태로 변환
+    """
+    messages = []
+    pattern = re.compile(r"<(SYSTEM|USER|ASSISTANT)>(.*?)</\1>", re.S)
 
-1, 2, 3, 4, 5 중에 하나를 정답으로 고르세요.
-정답:""",
-}
+    for role, content in pattern.findall(text):
+        messages.append(
+            {
+                "role": role.lower(),
+                "content": content.strip(),
+            }
+        )
+    return messages
+
+
+def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict]]:
+    template = load_template(template_name)
+    chat_messages = []
+
+    for p, q, qp, c in zip(
+        examples["paragraph"],
+        examples.get("question_plus", [None] * len(examples["paragraph"])),
+        examples["question"],
+        examples["choices"],
+    ):
+        choices_str = "\n".join(
+            f"{i+1} - {choice}" for i, choice in enumerate(c)
+        )
+
+        filled = template.format(
+            paragraph=p,
+            question_plus=qp or "",
+            question=q,
+            choices=choices_str,
+        )
+
+        messages = parse_chat_template(filled)
+
+        # SFT용: assistant 정답은 코드에서만 붙임
+        '''
+        if a is not None:
+            messages.append(
+                {"role": "assistant", "content": str(a)}
+            )
+        '''
+        chat_messages.append(messages)
+
+    return chat_messages
+
+if __name__ == "__main__":
+    examples = {
+        "paragraph": ["고종은 대한제국을 선포하였다."],
+        "question_plus": [None],
+        "question": ["다음 중 옳은 것은?"],
+        "choices": [["조선", "대한제국", "고려"]],
+    }
+
+    messages = build_chat_messages(
+        template_name="base",
+        examples=examples,
+    )
+
+    from pprint import pprint
+    pprint(messages)

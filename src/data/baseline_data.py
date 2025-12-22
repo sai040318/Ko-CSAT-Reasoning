@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from datasets import Dataset, DatasetDict
 from src.data.base_data import BaseDataset
 from src.utils.registry import DATASET_REGISTRY
+from prompt.prompt_templates import build_chat_messages
 
 @DATASET_REGISTRY.register("baseline")
 class BaselineDataset(BaseDataset):
@@ -54,28 +55,11 @@ class BaselineDataset(BaseDataset):
 
         def tokenize_fn(examples):
             # 1. 데이터를 Chat Message 형식으로 변환
-            chat_messages = []
-            for p, q, q_plus, c, a in zip(examples['paragraph'], examples['question'], examples['question_plus'], examples['choices'], examples['answer']):
-                choices_string = "\n".join([f"{idx + 1} - {choice}" for idx, choice in enumerate(c)])
-                
-                # <보기> 유무에 따른 사용자 메시지 구성
-                if q_plus and str(q_plus).strip():
-                    user_content = f"지문:\n{p}\n\n질문:\n{q}\n\n<보기>:\n{q_plus}\n\n선택지:\n{choices_string}\n\n1, 2, 3, 4, 5 중에 하나를 정답으로 고르세요.\n정답:"
-                else:
-                    user_content = f"지문:\n{p}\n\n질문:\n{q}\n\n선택지:\n{choices_string}\n\n1, 2, 3, 4, 5 중에 하나를 정답으로 고르세요.\n정답:"
-
-                message = [
-                    {"role": "system", "content": "지문을 읽고 질문의 답을 구하세요."},
-                    {"role": "user", "content": user_content},
-                ]
-                
-                # 학습 시에는 정답(assistant) 메시지 추가 (단, preprocess 단계에서는 입력만 만들 수도 있음)
-                # 여기서는 SFTTrainer가 labels를 처리하도록 user+assistant 구조를 만들거나
-                # CompletionOnlyLM 등을 위해 full text를 만듦
-                if a is not None:
-                    message.append({"role": "assistant", "content": str(a)})
-                
-                chat_messages.append(message)
+            chat_messages = build_chat_messages(
+                #template_name=cfg.template,  # yaml / cli에서 지정
+                template_name="base",  # yaml / cli에서 지정
+                examples=examples,
+            )
 
             # 2. Chat Template 적용 및 토큰화
             # apply_chat_template은 리스트의 리스트를 받으면 배치를 처리함
