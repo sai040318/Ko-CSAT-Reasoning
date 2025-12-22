@@ -96,7 +96,10 @@ class BaselineDataset(BaseDataset):
         processed_dataset = self.dataset.map(
             tokenize_fn,
             batched=True,
-            remove_columns=self.dataset["train"].column_names,
+            remove_columns=[
+                col for col in self.dataset["train"].column_names
+                if col not in ["id"]
+            ],
             num_proc=4,
             load_from_cache_file=True,
             desc="Tokenizing"
