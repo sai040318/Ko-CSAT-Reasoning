@@ -6,6 +6,8 @@
 지문:
 {paragraph}
 
+{question_plus}
+
 질문:
 {question}
 

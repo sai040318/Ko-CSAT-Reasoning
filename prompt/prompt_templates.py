@@ -40,14 +40,15 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
     n = len(examples["paragraph"])
     # 존재하지 않는 컬럼은 기본값으로 채움
     q_plus_list = examples.get("question_plus", [""] * n)
-    answer_list = examples.get("answer", [None] * n)
+
 
     for i in range(n):
         p = examples["paragraph"][i]
         q = examples["question"][i]  # 항상 존재
-        qp = q_plus_list[i] or ""
+        qp = "<보 기>\n"+q_plus_list[i] or ""
         c = examples["choices"][i]
-        a = answer_list[i]
+        a = examples["answer"][i]
+
 
         choices_str = "\n".join(f"{idx+1} - {choice}" for idx, choice in enumerate(c))
 
@@ -60,7 +61,7 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
 
         messages = parse_chat_template(filled)
 
-        if a is not None:
+        if a not in [None, ""]:
             messages.append({"role": "assistant", "content": str(a)})
 
         chat_messages.append(messages)
