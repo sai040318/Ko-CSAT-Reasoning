@@ -1,4 +1,6 @@
 import hydra
+import pandas as pd
+import os
 from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
@@ -42,9 +44,27 @@ def main(cfg: DictConfig):
         
     elif cfg.mode == "inference":
         print("🚀 추론 모드 시작")
-        # 추론 수행 (테스트 데이터셋 전체에 대해)
+        
+        # 학습된 모델 로드
+        model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
+        if not os.path.exists(model_load_path):
+            raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
+        print(f"모델 로드 중: {model_load_path}")
+        model.load_model(model_load_path)
+        
+        # test.csv 로드 및 전처리
+        test_dataset_path = cfg.inference.get("test_dataset_path", "data/test.csv")
+        if not os.path.exists(test_dataset_path):
+            raise ValueError(f"테스트 데이터셋 경로를 찾을 수 없습니다: {test_dataset_path}")
+        
+        print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
+        test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
+        test_dataset = test_dataset_cls(test_dataset_path)
+        processed_test_dataset = test_dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        
+        # 추론 수행
         predictions = model.predict(
-            dataset=processed_dataset["train"], # 테스트 셋이라면 'test' 키 사용
+            dataset=processed_test_dataset["train"],
             **cfg.inference
         )
         
@@ -52,7 +72,18 @@ def main(cfg: DictConfig):
         print(f"총 {len(predictions)}개 예측 완료")
         print(f"샘플 예측 결과: {list(predictions.items())[:3]}")
         
-        # TODO: submission.csv 저장 로직 추가
+        # output.csv 저장
+        output_path = cfg.inference.get("output_path", "output/output.csv")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # predictions 딕셔너리를 DataFrame으로 변환
+        df_output = pd.DataFrame([
+            {"id": id, "answer": answer} 
+            for id, answer in predictions.items()
+        ])
+        df_output = df_output.sort_values("id")  # id 순서대로 정렬
+        df_output.to_csv(output_path, index=False)
+        print(f"결과 저장 완료: {output_path}")
         
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")

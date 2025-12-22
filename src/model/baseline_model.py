@@ -199,5 +199,42 @@ class BaselineModel(BaseModel):
         self.tokenizer.save_pretrained(save_path)
 
     def load_model(self, load_path: str):
-        # 로드 로직은 필요시 구현 (AutoModel.from_pretrained로 대체 가능)
-        pass
+        """
+        저장된 모델 및 토크나이저를 로드합니다.
+        PEFT 모델의 경우 peft 모델을 로드합니다.
+        """
+        from peft import PeftModel
+        
+        # 양자화 설정 (메모리 효율을 위해)
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        
+        # 베이스 모델 로드
+        base_model = AutoModelForCausalLM.from_pretrained(
+            self.model_name_or_path,
+            quantization_config=bnb_config if self.use_peft else None,
+            torch_dtype=torch.float16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+        
+        # PEFT 모델이면 PEFT 가중치 로드
+        if self.use_peft:
+            self.model = PeftModel.from_pretrained(base_model, load_path)
+        else:
+            self.model = base_model
+        
+        # 토크나이저 로드
+        self.tokenizer = AutoTokenizer.from_pretrained(load_path, trust_remote_code=True)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        self.tokenizer.padding_side = "right"
+        
+        # Gemma Chat Template 설정
+        self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
+        
+        self.model.eval()
