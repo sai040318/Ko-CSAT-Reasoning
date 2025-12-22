@@ -30,38 +30,43 @@ def parse_chat_template(text: str) -> list[dict]:
 
 
 def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict]]:
+    """
+    zip 없이 row 단위로 순회
+    examples: {"paragraph": [...], "question": [...], "question_plus": [...], "choices": [...], "answer": [...]}
+    """
     template = load_template(template_name)
     chat_messages = []
 
-    for p, q, qp, c, a in zip(
-        examples["paragraph"],
-        examples.get("question_plus", [None] * len(examples["paragraph"])),
-        examples["question"],
-        examples["choices"],
-        examples["answer"],
-    ):
-        choices_str = "\n".join(
-            f"{i+1} - {choice}" for i, choice in enumerate(c)
-        )
+    n = len(examples["paragraph"])
+    # 존재하지 않는 컬럼은 기본값으로 채움
+    q_plus_list = examples.get("question_plus", [""] * n)
+    answer_list = examples.get("answer", [None] * n)
+
+    for i in range(n):
+        p = examples["paragraph"][i]
+        q = examples["question"][i]  # 항상 존재
+        qp = q_plus_list[i] or ""
+        c = examples["choices"][i]
+        a = answer_list[i]
+
+        choices_str = "\n".join(f"{idx+1} - {choice}" for idx, choice in enumerate(c))
 
         filled = template.format(
             paragraph=p,
-            question_plus=qp or "",
+            question_plus=qp,
             question=q,
-            choices=choices_str,
+            choices=choices_str
         )
 
         messages = parse_chat_template(filled)
 
-        # SFT용: assistant 정답은 코드에서만 붙임
         if a is not None:
-            messages.append(
-                {"role": "assistant", "content": str(a)}
-            )
+            messages.append({"role": "assistant", "content": str(a)})
 
         chat_messages.append(messages)
 
     return chat_messages
+
 
 if __name__ == "__main__":
     examples = {
