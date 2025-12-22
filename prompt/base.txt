@@ -1,0 +1,19 @@
+<SYSTEM>
+지문을 읽고 질문의 답을 구하세요.
+</SYSTEM>
+
+<USER>
+지문:
+{paragraph}
+
+{question_plus}
+
+질문:
+{question}
+
+선택지:
+{choices}
+
+1, 2, 3, 4, 5 중 하나를 정답으로 고르세요.
+정답:
+</USER>

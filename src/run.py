@@ -33,10 +33,28 @@ def main(cfg: DictConfig):
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "right"
     
+<<<<<<< HEAD
     # Gemma Chat Template 설정 (Baseline과 동일하게)
     tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
     
     # 2. 실행 모드에 따른 동작 수행
+=======
+    # 2. Dataset 로드 및 전처리
+    dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
+    dataset = dataset_cls(cfg.dataset.path)
+    #processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+    processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length, template=cfg.prompt.name)
+
+    # 3. Model 초기화
+    model_cls = MODEL_REGISTRY.get(cfg.model.type)
+    model = model_cls(
+        model_name_or_path=cfg.model.model_name_or_path,
+        use_peft=cfg.model.use_peft,
+        **cfg.training # 학습 관련 설정 전달
+    )
+
+    # 4. 실행 모드에 따른 동작 수행
+>>>>>>> 8eaa318fa1d4f06ab89ffe41adbcf99a13b59a9c
     if cfg.mode == "train":
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
