@@ -54,11 +54,10 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
         messages = parse_chat_template(filled)
 
         # SFT용: assistant 정답은 코드에서만 붙임
-
         if a is not None:
             messages.append(
-                {"role": "assistant", "content": str(a)}
-            )
+            {"role": "assistant", "content": str(a)}
+        )
 
         chat_messages.append(messages)
 

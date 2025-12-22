@@ -44,7 +44,7 @@ class BaselineDataset(BaseDataset):
         self.dataset = DatasetDict({"train": dataset})
         return self.dataset
 
-    def preprocess(self, tokenizer: Any, max_length: int = 512, **kwargs) -> DatasetDict:
+    def preprocess(self, tokenizer: Any, max_length: int = 512, template: str = "base", **kwargs) -> DatasetDict:
         """
         텍스트 데이터를 모델이 이해할 수 있는 토큰 ID로 변환합니다.
         (Generation Task를 위해 간단한 토큰화만 수행하거나, 
@@ -56,8 +56,8 @@ class BaselineDataset(BaseDataset):
         def tokenize_fn(examples):
             # 1. 데이터를 Chat Message 형식으로 변환
             chat_messages = build_chat_messages(
-                #template_name=cfg.template,  # yaml / cli에서 지정
-                template_name="base",  # yaml / cli에서 지정
+                #template_name=template,  # yaml / cli에서 지정
+                template_name="base", 
                 examples=examples,
             )
 
