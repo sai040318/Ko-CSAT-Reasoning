@@ -98,9 +98,11 @@ class BaselineDataset(BaseDataset):
             return model_inputs
 
         # 데이터셋의 모든 샘플에 토큰화 적용
+        # 'id' 컬럼은 추론 시 필요하므로 제거하지 않음
+        columns_to_remove = [col for col in self.dataset["train"].column_names if col != "id"]
         processed_dataset = self.dataset.map(
             tokenize_fn,
             batched=True,
-            remove_columns=self.dataset["train"].column_names
+            remove_columns=columns_to_remove
         )
         return processed_dataset
