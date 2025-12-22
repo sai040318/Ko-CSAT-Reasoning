@@ -1,13 +1,26 @@
 import hydra
 import pandas as pd
 import os
+import sys
+from pathlib import Path
+
+# 프로젝트 루트를 sys.path에 추가
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
 from src.utils.utils import set_seed
 
+# 레지스트리에 모델과 데이터셋을 등록하기 위해 import
+# __init__.py에서 자동으로 baseline_model과 baseline_data를 import함
+import src.model  # noqa: F401
+import src.data  # noqa: F401 
+
 # Hydra를 통해 설정 파일을 로드합니다.
-@hydra.main(version_base=None, config_path="../config", config_name="config")
+# config_path는 프로젝트 루트 기준으로 설정
+@hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
 def main(cfg: DictConfig):
     # 난수 시드 고정
     set_seed(cfg.seed)
@@ -15,7 +28,13 @@ def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
     # 1. Tokenizer 로드 (데이터 전처리를 위해 필요)
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model.model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model.model_name_or_path, trust_remote_code=True)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenizer.padding_side = "right"
+    
+    # Gemma Chat Template 설정 (Baseline과 동일하게)
+    tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
     
     # 2. 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
