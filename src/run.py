@@ -33,12 +33,6 @@ def main(cfg: DictConfig):
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "right"
     
-<<<<<<< HEAD
-    # Gemma Chat Template 설정 (Baseline과 동일하게)
-    tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
-    
-    # 2. 실행 모드에 따른 동작 수행
-=======
     # 2. Dataset 로드 및 전처리
     dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
     dataset = dataset_cls(cfg.dataset.path)
@@ -54,7 +48,6 @@ def main(cfg: DictConfig):
     )
 
     # 4. 실행 모드에 따른 동작 수행
->>>>>>> 8eaa318fa1d4f06ab89ffe41adbcf99a13b59a9c
     if cfg.mode == "train":
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
