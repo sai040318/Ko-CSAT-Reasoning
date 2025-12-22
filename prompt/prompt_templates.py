@@ -33,11 +33,12 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
     template = load_template(template_name)
     chat_messages = []
 
-    for p, q, qp, c in zip(
+    for p, q, qp, c, a in zip(
         examples["paragraph"],
         examples.get("question_plus", [None] * len(examples["paragraph"])),
         examples["question"],
         examples["choices"],
+        examples["answer"],
     ):
         choices_str = "\n".join(
             f"{i+1} - {choice}" for i, choice in enumerate(c)
@@ -53,12 +54,12 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
         messages = parse_chat_template(filled)
 
         # SFT용: assistant 정답은 코드에서만 붙임
-        '''
+
         if a is not None:
             messages.append(
                 {"role": "assistant", "content": str(a)}
             )
-        '''
+
         chat_messages.append(messages)
 
     return chat_messages
@@ -69,6 +70,7 @@ if __name__ == "__main__":
         "question_plus": [None],
         "question": ["다음 중 옳은 것은?"],
         "choices": [["조선", "대한제국", "고려"]],
+        "answer": [2],
     }
 
     messages = build_chat_messages(
