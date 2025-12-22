@@ -56,8 +56,7 @@ class BaselineDataset(BaseDataset):
         def tokenize_fn(examples):
             # 1. 데이터를 Chat Message 형식으로 변환
             chat_messages = build_chat_messages(
-                #template_name=template,  # yaml / cli에서 지정
-                template_name="base", 
+                template_name=template,  # yaml / cli에서 지정
                 examples=examples,
             )
 
