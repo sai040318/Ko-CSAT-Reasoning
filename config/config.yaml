@@ -24,7 +24,7 @@ model:
 
 # 학습 설정 (SFTConfig 전달용)
 training:
-  output_dir: outputs_gemma
+  output_dir: output/outputs_gemma
   num_train_epochs: 3
   per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
@@ -45,6 +45,9 @@ training:
 inference:
   max_new_tokens: 1
   batch_size: 1
+  test_dataset_path: data/test.csv  # 테스트 데이터셋 경로
+  model_load_path: output/outputs_gemma  # 학습된 모델 경로 (기본값: training.output_dir)
+  output_path: output/output.csv  # 결과 저장 경로
 
 # RAG 설정 (미사용)
 rag:
