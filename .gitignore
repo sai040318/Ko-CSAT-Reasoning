@@ -1,1 +1,6 @@
-./data
+**/venv/
+*.csv
+*.gz
+.DS_Store
+outputs_gemma/
+./data/
