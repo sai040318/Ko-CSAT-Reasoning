@@ -12,6 +12,7 @@ from peft import LoraConfig, get_peft_model, TaskType
 from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
 from src.model.base_model import BaseModel
+from trl import DataCollatorForCompletionOnlyLM
 from src.utils.registry import MODEL_REGISTRY
 
 @MODEL_REGISTRY.register("baseline")
@@ -19,36 +20,33 @@ class BaselineModel(BaseModel):
     """
     대회 베이스라인 모델 (SFT + LoRA + Logit Selection).
     """
+    
+    @staticmethod
+    def get_tokenizer(model_name_or_path: str, **kwargs):
+        """
+        Gemma 모델에 특화된 토크나이저 로드 및 Chat Template 설정
+        """
+        # 부모 클래스의 기본 설정을 먼저 수행
+        tokenizer = BaseModel.get_tokenizer(model_name_or_path, **kwargs)
+        
+        # Gemma Chat Template 설정
+        tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
+        return tokenizer
 
     def __init__(self, model_name_or_path: str, use_peft: bool = True, **kwargs):
         super().__init__(model_name_or_path, **kwargs)
         self.use_peft = use_peft
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        # 모델 및 토크나이저 로드 (초기화)
-        # 양자화 설정 (메모리 효율을 위해)
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
-        )
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name_or_path,
-            quantization_config=bnb_config if self.use_peft else None,
-            torch_dtype=torch.float16, # Baseline은 float16 사용
+            torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True
         )
         
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, trust_remote_code=True)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        self.tokenizer.padding_side = "right"
-        
-        # Gemma Chat Template 설정 (Baseline과 동일하게)
-        self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
+        # get_tokenizer를 사용하여 토크나이저 초기화
+        self.tokenizer = self.get_tokenizer(self.model_name_or_path)
 
         if self.use_peft:
             # Hydra의 ListConfig를 일반 Python 리스트로 변환
@@ -102,6 +100,11 @@ class BaselineModel(BaseModel):
             f1 = f1_score(label_indices, preds, average='macro', zero_division=0)
             return {"macro_f1": f1}
 
+        data_collator = DataCollatorForCompletionOnlyLM(
+            response_template="<start_of_turn>model",
+            tokenizer=self.tokenizer,
+        )
+
         # kwargs에 있는 설정들을 SFTConfig로 전달
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
@@ -129,6 +132,7 @@ class BaselineModel(BaseModel):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
+            data_collator=data_collator,
             compute_metrics=compute_metrics,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
@@ -204,42 +208,5 @@ class BaselineModel(BaseModel):
         self.tokenizer.save_pretrained(save_path)
 
     def load_model(self, load_path: str):
-        """
-        저장된 모델 및 토크나이저를 로드합니다.
-        PEFT 모델의 경우 peft 모델을 로드합니다.
-        """
-        from peft import PeftModel
-        
-        # 양자화 설정 (메모리 효율을 위해)
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
-        )
-        
-        # 베이스 모델 로드
-        base_model = AutoModelForCausalLM.from_pretrained(
-            self.model_name_or_path,
-            quantization_config=bnb_config if self.use_peft else None,
-            torch_dtype=torch.float16,
-            device_map="auto",
-            trust_remote_code=True
-        )
-        
-        # PEFT 모델이면 PEFT 가중치 로드
-        if self.use_peft:
-            self.model = PeftModel.from_pretrained(base_model, load_path)
-        else:
-            self.model = base_model
-        
-        # 토크나이저 로드
-        self.tokenizer = AutoTokenizer.from_pretrained(load_path, trust_remote_code=True)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        self.tokenizer.padding_side = "right"
-        
-        # Gemma Chat Template 설정
-        self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
-        
-        self.model.eval()
+        # 로드 로직은 필요시 구현 (AutoModel.from_pretrained로 대체 가능)
+        pass

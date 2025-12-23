@@ -27,24 +27,25 @@ def main(cfg: DictConfig):
     
     print(OmegaConf.to_yaml(cfg))
 
-    # 1. Tokenizer 로드 (데이터 전처리를 위해 필요)
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model.model_name_or_path, trust_remote_code=True)
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.padding_side = "right"
+    # 모델 클래스 로드 및 Tokenizer 초기화
+    # 모델에 맞는 토크나이저(Chat Template 포함)를 가져오기 위해 모델 클래스를 먼저 로드합니다.
+    model_cls = MODEL_REGISTRY.get(cfg.model.type)
+    tokenizer = model_cls.get_tokenizer(cfg.model.model_name_or_path)
     
-    # Gemma Chat Template 설정 (Baseline과 동일하게)
-    tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
-    
-    # 2. 실행 모드에 따른 동작 수행
+    # 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
-        processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        # Train 모드: Config에 정의된 train용 전처리 옵션 전달 (filter=True, gen_prompt=False)
+        processed_dataset = dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.train
+        )
 
         # 2-2. Model 초기화
-        model_cls = MODEL_REGISTRY.get(cfg.model.type)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
             use_peft=cfg.model.use_peft,
@@ -69,7 +70,6 @@ def main(cfg: DictConfig):
         print("🚀 추론 모드 시작")
         
         # 2-1. Model 초기화 (구조만 생성, 가중치는 로드하지 않음)
-        model_cls = MODEL_REGISTRY.get(cfg.model.type)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
             use_peft=cfg.model.use_peft,
@@ -95,7 +95,12 @@ def main(cfg: DictConfig):
         print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
         test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         test_dataset = test_dataset_cls(test_dataset_path)
-        processed_test_dataset = test_dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        processed_test_dataset = test_dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.inference
+        )
         
         # 2-4. 추론 수행
         predictions = model.predict(
@@ -126,10 +131,14 @@ def main(cfg: DictConfig):
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
-        processed_dataset = dataset.preprocess(tokenizer, max_length=cfg.model.max_seq_length)
+        processed_dataset = dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.inference
+        )
 
         # 2-2. Model 초기화
-        model_cls = MODEL_REGISTRY.get(cfg.model.type)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
             use_peft=cfg.model.use_peft,
