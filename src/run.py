@@ -2,6 +2,7 @@ import hydra
 import pandas as pd
 import os
 import sys
+import re
 from pathlib import Path
 
 # 프로젝트 루트를 sys.path에 추가
@@ -84,6 +85,15 @@ def main(cfg: DictConfig):
         model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
         if not os.path.exists(model_load_path):
             raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
+        # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
+        p = Path(model_load_path)
+        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
+        if ckpts:
+            ckpts.sort(
+                key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1))
+            )
+            model_load_path = str(ckpts[-1])
+
         print(f"모델 로드 중: {model_load_path}")
         model.load_model(model_load_path)
         

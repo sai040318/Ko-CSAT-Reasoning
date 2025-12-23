@@ -8,7 +8,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig
 )
-from peft import LoraConfig, get_peft_model, TaskType
+from peft import LoraConfig, get_peft_model, TaskType, AutoPeftModelForCausalLM
 from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
 from src.model.base_model import BaseModel
@@ -208,5 +208,16 @@ class BaselineModel(BaseModel):
         self.tokenizer.save_pretrained(save_path)
 
     def load_model(self, load_path: str):
-        # 로드 로직은 필요시 구현 (AutoModel.from_pretrained로 대체 가능)
-        pass
+        # 1) 학습된 LoRA 어댑터 포함 모델 로드
+        self.model = AutoPeftModelForCausalLM.from_pretrained(
+            load_path,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+        )
+
+        # 2) 토크나이저도 동일 경로에서 로드(권장)
+        self.tokenizer = AutoTokenizer.from_pretrained(load_path, trust_remote_code=True)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        self.tokenizer.padding_side = "right"
