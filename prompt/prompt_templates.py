@@ -45,7 +45,8 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
     for i in range(n):
         p = examples["paragraph"][i]
         q = examples["question"][i]  # 항상 존재
-        qp = "<보 기>\n"+q_plus_list[i] or ""
+        qp_raw = q_plus_list[i]
+        qp = f"<보 기>\n{qp_raw}" if qp_raw else ""
         c = examples["choices"][i]
         a = examples["answer"][i]
 
