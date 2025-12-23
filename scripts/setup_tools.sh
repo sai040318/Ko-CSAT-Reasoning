@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/bash
+
 # 유용한 시스템 도구 설치 (ncdu, tree, htop, tmux 등)
 set -e
 

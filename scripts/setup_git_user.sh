@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/bash
+
 # scripts/setup_git_user.sh
 # 설명: 현재 프로젝트에 한정하여 Git 사용자 이름과 이메일을 설정합니다.
 

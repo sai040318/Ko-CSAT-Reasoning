@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 # [3] uv 설치 및 공용 가상환경 생성 (Bashrc 등록 포함)
 set -e
 

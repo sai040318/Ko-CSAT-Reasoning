@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 # [3] 환경 변수 및 가상환경 자동 실행 설정
 SHARED_ROOT="/data/ephemeral/home/shared"
 SHARED_VENV="$SHARED_ROOT/.venv"
