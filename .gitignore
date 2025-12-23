@@ -4,3 +4,4 @@
 .DS_Store
 outputs_gemma/
 ./data/
+unsloth_env_audit_*/
