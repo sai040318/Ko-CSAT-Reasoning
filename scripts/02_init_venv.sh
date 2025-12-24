@@ -53,26 +53,26 @@ fi
 # ------------------------------------------------------------------
 # 2. 공용 가상환경 생성 및 패키지 설치
 # ------------------------------------------------------------------
-if [ ! -d "$SHARED_VENV" ]; then
-    echo "    📦 공용 가상환경 생성 중 (Python 3.11)..."
-    echo "       경로: $SHARED_VENV"
+# if [ ! -d "$SHARED_VENV" ]; then
+#     echo "    📦 공용 가상환경 생성 중 (Python 3.11)..."
+#     echo "       경로: $SHARED_VENV"
     
-    # uv를 사용하여 가상환경 생성
-    uv venv "$SHARED_VENV" --python 3.11
+#     # uv를 사용하여 가상환경 생성
+#     uv venv "$SHARED_VENV" --python 3.11
     
-    # 패키지 설치를 위해 가상환경 활성화
-    source "$SHARED_VENV/bin/activate"
+#     # 패키지 설치를 위해 가상환경 활성화
+#     source "$SHARED_VENV/bin/activate"
     
-    if [ -f "requirements.txt" ]; then 
-        echo "    📦 requirements.txt 설치 중..."
-        uv pip install -r requirements.txt
-    fi
-    if [ -f "deps.txt" ]; then 
-        echo "    📦 deps.txt 설치 중..."
-        uv pip install -r deps.txt
-    fi
+    # if [ -f "requirements.txt" ]; then 
+    #     echo "    📦 requirements.txt 설치 중..."
+    #     uv pip install -r requirements.txt
+    # fi
+    # if [ -f "deps.txt" ]; then 
+    #     echo "    📦 deps.txt 설치 중..."
+    #     uv pip install -r deps.txt
+    # fi
     
-    echo "    ✅ 가상환경 생성 및 라이브러리 설치 완료"
-else
-    echo "    ℹ️  공용 가상환경이 이미 존재합니다."
-fi
+#     echo "    ✅ 가상환경 생성 및 라이브러리 설치 완료"
+# else
+#     echo "    ℹ️  공용 가상환경이 이미 존재합니다."
+# fi
