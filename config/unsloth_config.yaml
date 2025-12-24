@@ -1,0 +1,75 @@
+# 기본 설정
+mode: train # train, inference, evaluate
+seed: 42
+exp_name: unsloth_gemma_exp
+
+# Hydra 설정
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+
+# 데이터셋 설정
+dataset:
+  type: baseline
+  path: data/train.csv
+  
+  # 전처리 옵션
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: true
+    inference:
+      add_generation_prompt: true
+      filter_over_length: false
+
+# 프롬프트 탬플릿(txt) 설정
+prompt:
+  name: base
+
+# 모델 설정 (Unsloth)
+model:
+  type: unsloth 
+  model_name_or_path: "unsloth/gemma-2b-it-bnb-4bit"
+  use_peft: true
+  max_seq_length: 2048 # Unsloth은 긴 시퀀스도 잘 처리함
+  load_in_4bit: true   # Unsloth 4bit 로드
+  
+  # LoRA 설정 (Unsloth 최적화 값)
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0 # Unsloth은 0 권장
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  lora_bias: "none"
+
+# 학습 설정 (Unsloth은 배치를 키워도 됨)
+training:
+  output_dir: output/unsloth_gemma
+  num_train_epochs: 3
+  per_device_train_batch_size: 2 # 1 -> 2로 증가
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 4 # 배치를 키웠으므로 조정
+  learning_rate: 2e-4
+  lr_scheduler_type: "linear"
+  weight_decay: 0.01
+  logging_steps: 10
+  eval_steps: 100
+  save_strategy: "steps"
+  evaluation_strategy: "steps"
+  save_total_limit: 2
+  save_only_model: true
+  fp16: true
+  bf16: false
+  report_to: "wandb"
+
+# 추론 설정
+inference:
+  max_new_tokens: 1
+  batch_size: 2 # 추론 배치도 증가 가능
+  test_dataset_path: data/test.csv
+  model_load_path: output/unsloth_gemma
+  output_path: output/unsloth_output.csv
+
+# RAG 설정 (미사용)
+rag:
+  use: false
