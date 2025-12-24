@@ -11,9 +11,6 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, TaskType, AutoPeftModelForCausalLM
 from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
-from src.model.base_model import BaseModel
-from trl import DataCollatorForCompletionOnlyLM
-from src.utils.registry import MODEL_REGISTRY
 
 @MODEL_REGISTRY.register("baseline")
 class BaselineModel(BaseModel):
@@ -100,11 +97,6 @@ class BaselineModel(BaseModel):
             f1 = f1_score(label_indices, preds, average='macro', zero_division=0)
             return {"macro_f1": f1}
 
-        data_collator = DataCollatorForCompletionOnlyLM(
-            response_template="<start_of_turn>model",
-            tokenizer=self.tokenizer,
-        )
-
         # kwargs에 있는 설정들을 SFTConfig로 전달
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
@@ -118,13 +110,15 @@ class BaselineModel(BaseModel):
             logging_steps=kwargs.get("logging_steps", 100),
             eval_steps=kwargs.get("eval_steps", 50),
             save_strategy=kwargs.get("save_strategy", "epoch"),
-            eval_strategy=kwargs.get("evaluation_strategy", "epoch"),  # evaluation_strategy -> eval_strategy
+            eval_strategy=kwargs.get("evaluation_strategy", "epoch"),
             save_total_limit=kwargs.get("save_total_limit", 2),
             save_only_model=kwargs.get("save_only_model", True),
-            fp16=kwargs.get("fp16", True),  # fp16 기본값
-            bf16=kwargs.get("bf16", False),  # bf16 기본값은 False
+            fp16=kwargs.get("fp16", True),
+            bf16=kwargs.get("bf16", False),
             report_to=kwargs.get("report_to", "none"),
             packing=False,
+            completion_only_loss=True,
+            response_template="<start_of_turn>model",
         )
 
         trainer = SFTTrainer(
@@ -132,7 +126,6 @@ class BaselineModel(BaseModel):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
-            data_collator=data_collator,
             compute_metrics=compute_metrics,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )

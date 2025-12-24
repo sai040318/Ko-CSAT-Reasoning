@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import f1_score
 from typing import Any, Dict, Optional
 from datasets import Dataset
-from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
+from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
 from unsloth import FastLanguageModel
 
@@ -79,28 +79,26 @@ class UnslothModel(BaseModel):
             f1 = f1_score(label_indices, preds, average='macro', zero_division=0)
             return {"macro_f1": f1}
 
-        data_collator = DataCollatorForCompletionOnlyLM(
-            response_template="<start_of_turn>model",
-            tokenizer=self.tokenizer,
-        )
-
+        # DataCollator 대신 SFTConfig의 최신 파라미터 사용
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
             num_train_epochs=kwargs.get("num_train_epochs", 3),
-            per_device_train_batch_size=kwargs.get("per_device_train_batch_size", 2), # Unsloth는 배치를 더 크게 잡을 수 있음
+            per_device_train_batch_size=kwargs.get("per_device_train_batch_size", 2),
             gradient_accumulation_steps=kwargs.get("gradient_accumulation_steps", 1),
             learning_rate=kwargs.get("learning_rate", 2e-4),
             weight_decay=kwargs.get("weight_decay", 0.01),
-            lr_scheduler_type="linear",
-            seed=3407,
+            lr_scheduler_type=kwargs.get("lr_scheduler_type", "linear"),
+            seed=kwargs.get("seed", 3407),
             logging_steps=kwargs.get("logging_steps", 100),
             eval_steps=kwargs.get("eval_steps", 50),
             save_strategy=kwargs.get("save_strategy", "epoch"),
             eval_strategy=kwargs.get("evaluation_strategy", "epoch"),
-            fp16=not torch.cuda.is_bf16_supported(),
-            bf16=torch.cuda.is_bf16_supported(),
-            packing=False, # Short sequences라면 False 권장
+            fp16=kwargs.get("fp16", not torch.cuda.is_bf16_supported()),
+            bf16=kwargs.get("bf16", torch.cuda.is_bf16_supported()),
+            packing=False,
             report_to=kwargs.get("report_to", "none"),
+            completion_only_loss=True,
+            response_template="<start_of_turn>model",
         )
 
         trainer = SFTTrainer(
@@ -108,11 +106,10 @@ class UnslothModel(BaseModel):
             tokenizer=self.tokenizer,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            dataset_text_field="text", # Unsloth/TRL 요구사항
+            dataset_text_field="text",
             max_seq_length=self.max_seq_length,
             dataset_num_proc=2,
             args=training_args,
-            data_collator=data_collator,
             compute_metrics=compute_metrics,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
