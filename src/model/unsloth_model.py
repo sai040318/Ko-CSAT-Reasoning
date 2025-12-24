@@ -86,13 +86,29 @@ class UnslothModel(BaseModel):
 
         trainer = SFTTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            dataset_text_field="text",
-            max_seq_length=self.max_seq_length,
             args=training_args,
         )
+
+        # ================================
+        # TRL entropy 계산 완전 차단 패치
+        # ================================
+        import types
+
+        _original_compute_loss = trainer.compute_loss
+
+        def compute_loss_no_entropy(self, model, inputs, return_outputs=False, **kwargs):
+            # 원래 loss 계산
+            outputs = model(**inputs)
+            loss = outputs.loss
+
+            if return_outputs:
+                return loss, outputs
+            return loss
+
+        trainer.compute_loss = types.MethodType(compute_loss_no_entropy, trainer)
+
 
         trainer.train()
 
