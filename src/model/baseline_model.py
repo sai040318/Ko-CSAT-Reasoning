@@ -11,6 +11,8 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, TaskType, AutoPeftModelForCausalLM
 from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
+from src.model.base_model import BaseModel
+from src.utils.registry import MODEL_REGISTRY
 
 @MODEL_REGISTRY.register("baseline")
 class BaselineModel(BaseModel):
