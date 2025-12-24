@@ -120,7 +120,6 @@ class BaselineModel(BaseModel):
             report_to=kwargs.get("report_to", "none"),
             packing=False,
             completion_only_loss=True,
-            response_template="<start_of_turn>model",
         )
 
         trainer = SFTTrainer(

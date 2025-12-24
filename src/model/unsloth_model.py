@@ -76,7 +76,7 @@ class UnslothModel(BaseModel):
             learning_rate=kwargs.get("learning_rate", 2e-4),
             logging_steps=kwargs.get("logging_steps", 50),
             save_strategy=kwargs.get("save_strategy", "epoch"),
-            evaluation_strategy=kwargs.get("evaluation_strategy", "epoch"),
+            eval_strategy=kwargs.get("eval_strategy", "epoch"),
             fp16=kwargs.get("fp16", True),
             bf16=kwargs.get("bf16", False),
             packing=False,
