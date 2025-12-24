@@ -1,0 +1,32 @@
+# Unsloth 모델 설정
+name: "unsloth"
+model_name_or_path: "unsloth/gemma-2b-it-bnb-4bit" # 예시: Gemma 2B 4bit quantized
+
+# Unsloth 설정
+load_in_4bit: true
+max_seq_length: 2048
+
+# LoRA 설정
+use_peft: true
+lora_r: 16
+lora_alpha: 16
+lora_dropout: 0
+lora_bias: "none"
+lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# 학습 설정
+num_train_epochs: 3
+per_device_train_batch_size: 2
+per_device_eval_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 2e-4
+weight_decay: 0.01
+logging_steps: 10
+eval_steps: 100
+save_strategy: "steps"
+evaluation_strategy: "steps"
+save_total_limit: 2
+save_only_model: true
+fp16: false
+bf16: true # Ampere 이상 GPU 권장
+report_to: "wandb"
