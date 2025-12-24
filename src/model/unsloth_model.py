@@ -15,7 +15,26 @@ class UnslothModel(BaseModel):
     """
     Unsloth 라이브러리를 활용한 가속화된 모델 클래스.
     """
-    
+
+    @staticmethod
+    def get_tokenizer(model_name_or_path: str, **kwargs):
+        """
+        Unsloth 모델에 맞는 토크나이저 로드 및 Chat Template 설정.
+        BaseModel의 기본 get_tokenizer를 오버라이드합니다.
+        """
+        from transformers import AutoTokenizer
+        
+        # 1. 기본 토크나이저 로드
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True, **kwargs)
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+        tokenizer.padding_side = "right"
+        
+        # 2. 시스템 프롬프트 지원을 위한 Chat Template 강제 설정 (Gemma 등 대응)
+        tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
+        
+        return tokenizer
+
     def __init__(self, model_name_or_path: str, **kwargs):
         super().__init__(model_name_or_path, **kwargs)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
