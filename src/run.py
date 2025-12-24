@@ -31,22 +31,11 @@ def main(cfg: DictConfig):
     # 모델 클래스 로드 및 Tokenizer 초기화
     # 모델에 맞는 토크나이저(Chat Template 포함)를 가져오기 위해 모델 클래스를 먼저 로드합니다.
     model_cls = MODEL_REGISTRY.get(cfg.model.type)
-    tokenizer = model_cls.get_tokenizer(cfg.model.model_name_or_path)
     
     # 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
-        # 2-1. Dataset 로드 및 전처리
-        dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
-        dataset = dataset_cls(cfg.dataset.path)
-        # Train 모드: Config에 정의된 train용 전처리 옵션 전달 (filter=True, gen_prompt=False)
-        processed_dataset = dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.train
-        )
 
-        # 2-2. Model 초기화
+        # Model 초기화
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
             use_peft=cfg.model.use_peft,
@@ -57,6 +46,21 @@ def main(cfg: DictConfig):
             lora_bias=cfg.model.lora_bias,
             **cfg.training # 학습 관련 설정 전달
         )
+
+        tokenizer = model.tokenizer
+
+        dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
+        dataset = dataset_cls(cfg.dataset.path)
+
+        # Dataset 로드 및 전처리
+        processed_dataset = dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.train
+        )
+
+
         print("🚀 학습 모드 시작")
         # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
@@ -80,6 +84,7 @@ def main(cfg: DictConfig):
             lora_target_modules=cfg.model.lora_target_modules,
             lora_bias=cfg.model.lora_bias,
         )
+        tokenizer = model.tokenizer
         
         # 2-2. 학습된 모델 로드
         model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
@@ -138,17 +143,7 @@ def main(cfg: DictConfig):
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
         
-        # 2-1. Dataset 로드 및 전처리
-        dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
-        dataset = dataset_cls(cfg.dataset.path)
-        processed_dataset = dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.inference
-        )
-
-        # 2-2. Model 초기화
+        # Model 초기화
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
             use_peft=cfg.model.use_peft,
@@ -158,7 +153,19 @@ def main(cfg: DictConfig):
             lora_target_modules=cfg.model.lora_target_modules,
             lora_bias=cfg.model.lora_bias,
         )
-        
+
+        tokenizer = model.tokenizer
+
+        # Dataset 로드 및 전처리
+        dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
+        dataset = dataset_cls(cfg.dataset.path)
+        processed_dataset = dataset.preprocess(
+            tokenizer, 
+            max_length=cfg.model.max_seq_length, 
+            template=cfg.prompt.name, 
+            **cfg.dataset.preprocess.inference
+        )
+
         # 2-3. 학습된 모델 로드 (선택사항)
         model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
         if os.path.exists(model_load_path):
