@@ -21,3 +21,6 @@ checkpoints/
 **/checkpoints/
 logs/
 **/logs/
+
+# ===== Unsloth artifacts =====
+**/unsloth_compiled_cache
