@@ -19,9 +19,9 @@ if ! command -v uv &> /dev/null; then
     
     # 설치된 uv 경로 찾기 (보통 ~/.local/bin 또는 ~/.cargo/bin)
     if [ -f "$HOME/.local/bin/env" ]; then
-        UV_ENV_PATH="$HOME/.local/bin/env"
-    elif [ -f "$HOME/.cargo/env" ]; then
-        UV_ENV_PATH="$HOME/.cargo/env"
+        # UV_ENV_PATH="$HOME/.local/bin/env"
+    # elif [ -f "$HOME/.cargo/env" ]; then
+    #     UV_ENV_PATH="$HOME/.cargo/env"
     else
         # fallback: 직접 PATH 추가
         UV_ENV_PATH=""

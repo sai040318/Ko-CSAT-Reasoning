@@ -2,25 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from datasets import Dataset
 
-from transformers import AutoTokenizer
 
 class BaseModel(ABC):
     """
     모든 모델 클래스의 기본 추상 클래스.
     팀원들이 새로운 모델(예: Gemma, Llama 등)을 실험할 때 이 클래스를 상속받습니다.
     """
-    
-    @staticmethod
-    def get_tokenizer(model_name_or_path: str, **kwargs):
-        """
-        모델에 맞는 토크나이저를 로드하고 반환합니다.
-        필요한 경우 Chat Template 등의 설정을 이곳에서 수행합니다.
-        """
-        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True, **kwargs)
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-        tokenizer.padding_side = "right"
-        return tokenizer
 
     def __init__(self, model_name_or_path: str, **kwargs):
         """
@@ -33,10 +20,19 @@ class BaseModel(ABC):
         self.tokenizer = None
 
     @abstractmethod
+    def get_tokenizer(model_name_or_path: str, **kwargs):
+        """
+        모델에 맞는 토크나이저를 로드하고 반환합니다.
+        필요한 경우 Chat Template 등의 설정을 이곳에서 수행합니다.
+        """
+
+        pass
+
+    @abstractmethod
     def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None, **kwargs):
         """
         모델 학습을 수행합니다.
-        
+
         Args:
             train_dataset: 전처리된 학습 데이터셋
             eval_dataset: 전처리된 검증 데이터셋 (선택)
@@ -62,11 +58,11 @@ class BaseModel(ABC):
     def predict(self, dataset: Dataset, **kwargs) -> Dict[str, Any]:
         """
         주어진 데이터셋에 대해 추론을 수행합니다.
-        
+
         Args:
             dataset: 전처리된 추론용 데이터셋
             **kwargs: 추론 설정 (max_new_tokens 등)
-            
+
         Returns:
             Dict[str, Any]: {id: 예측값} 형태의 딕셔너리
         """

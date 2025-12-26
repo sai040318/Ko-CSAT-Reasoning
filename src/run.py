@@ -1,9 +1,14 @@
+import unsloth
 import hydra
 import pandas as pd
 import os
 import sys
 import re
 from pathlib import Path
+
+from transformers import activations
+
+activations.PytorchGELUTanh = activations.GELUTanh
 
 # 프로젝트 루트를 sys.path에 추가
 project_root = Path(__file__).parent.parent
@@ -17,22 +22,24 @@ from src.utils.utils import set_seed
 # 레지스트리에 모델과 데이터셋을 등록하기 위해 import
 # __init__.py에서 자동으로 baseline_model과 baseline_data를 import함
 import src.model  # noqa: F401
-import src.data  # noqa: F401 
+import src.data  # noqa: F401
 
-# Hydra를 통해 설정 파일을 로드합니다.
-# config_path는 프로젝트 루트 기준으로 설정
-@hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
+
+# TODO: run.py 돌아간 시간 기록, tqdm 등 활용
+# Hydra를 통해 설정 파일을 로드합니다 config_path는 프로젝트 루트 기준으로 설정
+@hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="exaone")
 def main(cfg: DictConfig):
     # 난수 시드 고정
     set_seed(cfg.seed)
-    
+
     print(OmegaConf.to_yaml(cfg))
 
     # 모델 클래스 로드 및 Tokenizer 초기화
     # 모델에 맞는 토크나이저(Chat Template 포함)를 가져오기 위해 모델 클래스를 먼저 로드합니다.
     model_cls = MODEL_REGISTRY.get(cfg.model.type)
+    print("log!!!!!!!!: ", cfg.model.model_name_or_path)
     tokenizer = model_cls.get_tokenizer(cfg.model.model_name_or_path)
-    
+
     # 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
         # 2-1. Dataset 로드 및 전처리
@@ -40,10 +47,7 @@ def main(cfg: DictConfig):
         dataset = dataset_cls(cfg.dataset.path)
         # Train 모드: Config에 정의된 train용 전처리 옵션 전달 (filter=True, gen_prompt=False)
         processed_dataset = dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.train
+            tokenizer, max_length=cfg.model.max_seq_length, template=cfg.prompt.name, **cfg.dataset.preprocess.train
         )
 
         # 2-2. Model 초기화
@@ -55,21 +59,17 @@ def main(cfg: DictConfig):
             lora_dropout=cfg.model.lora_dropout,
             lora_target_modules=cfg.model.lora_target_modules,
             lora_bias=cfg.model.lora_bias,
-            **cfg.training # 학습 관련 설정 전달
+            **cfg.training,  # 학습 관련 설정 전달
         )
         print("🚀 학습 모드 시작")
         # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
-        
-        model.train(
-            train_dataset=split_dataset["train"],
-            eval_dataset=split_dataset["test"],
-            **cfg.training
-        )
-        
+
+        model.train(train_dataset=split_dataset["train"], eval_dataset=split_dataset["test"], **cfg.training)
+
     elif cfg.mode == "inference":
         print("🚀 추론 모드 시작")
-        
+
         # 2-1. Model 초기화 (구조만 생성, 가중치는 로드하지 않음)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
@@ -80,72 +80,59 @@ def main(cfg: DictConfig):
             lora_target_modules=cfg.model.lora_target_modules,
             lora_bias=cfg.model.lora_bias,
         )
-        
-        # 2-2. 학습된 모델 로드
-        model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
-        if not os.path.exists(model_load_path):
-            raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
-        # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
-        p = Path(model_load_path)
-        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
-        if ckpts:
-            ckpts.sort(
-                key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1))
-            )
-            model_load_path = str(ckpts[-1])
 
-        print(f"모델 로드 중: {model_load_path}")
-        model.load_model(model_load_path)
-        
+        # 2-2. 학습된 모델 로드 (선택 사항)
+        model_load_path = cfg.inference.get("model_load_path", None)
+        if model_load_path and os.path.exists(model_load_path):
+            # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
+            p = Path(model_load_path)
+            ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
+            if ckpts:
+                ckpts.sort(key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1)))
+                model_load_path = str(ckpts[-1])
+
+            print(f"모델 로드 중: {model_load_path}")
+            model.load_model(model_load_path)
+        elif model_load_path:
+            print(f"모델 로드 생략 (경로 없음): {model_load_path}")
+
         # 2-3. test.csv 로드 및 전처리
         test_dataset_path = cfg.inference.get("test_dataset_path", "data/test.csv")
         if not os.path.exists(test_dataset_path):
             raise ValueError(f"테스트 데이터셋 경로를 찾을 수 없습니다: {test_dataset_path}")
-        
+
         print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
         test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         test_dataset = test_dataset_cls(test_dataset_path)
         processed_test_dataset = test_dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.inference
+            tokenizer, max_length=cfg.model.max_seq_length, template=cfg.prompt.name, **cfg.dataset.preprocess.inference
         )
-        
+
         # 2-4. 추론 수행
-        predictions = model.predict(
-            dataset=processed_test_dataset["train"],
-            **cfg.inference
-        )
-        
+        predictions = model.predict(dataset=processed_test_dataset["train"], **cfg.inference)
+
         # 2-5. 결과 출력 (일부만)
         print(f"총 {len(predictions)}개 예측 완료")
         print(f"샘플 예측 결과: {list(predictions.items())[:3]}")
-        
+
         # 2-6. output.csv 저장
         output_path = cfg.inference.get("output_path", "output/output.csv")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
+
         # predictions 딕셔너리를 DataFrame으로 변환
-        df_output = pd.DataFrame([
-            {"id": id, "answer": answer} 
-            for id, answer in predictions.items()
-        ])
+        df_output = pd.DataFrame([{"id": id, "answer": answer} for id, answer in predictions.items()])
         df_output = df_output.sort_values("id")  # id 순서대로 정렬
         df_output.to_csv(output_path, index=False)
         print(f"결과 저장 완료: {output_path}")
-        
+
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
-        
+
         # 2-1. Dataset 로드 및 전처리
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
         processed_dataset = dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.inference
+            tokenizer, max_length=cfg.model.max_seq_length, template=cfg.prompt.name, **cfg.dataset.preprocess.inference
         )
 
         # 2-2. Model 초기화
@@ -158,17 +145,18 @@ def main(cfg: DictConfig):
             lora_target_modules=cfg.model.lora_target_modules,
             lora_bias=cfg.model.lora_bias,
         )
-        
+
         # 2-3. 학습된 모델 로드 (선택사항)
         model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
         if os.path.exists(model_load_path):
             print(f"모델 로드 중: {model_load_path}")
             model.load_model(model_load_path)
-        
+
         # 2-4. 학습 데이터셋 일부를 사용하여 평가 (임시)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
         metrics = model.evaluate(split_dataset["test"])
         print(f"평가 결과: {metrics}")
+
 
 if __name__ == "__main__":
     main()

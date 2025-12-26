@@ -21,3 +21,9 @@ checkpoints/
 **/checkpoints/
 logs/
 **/logs/
+**/unsloth_env_audit*/
+AGENTS.md
+uv.lock
+
+# ===== unsloth compiled cache =====
+**/unsloth_compiled_cache/
