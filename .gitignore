@@ -23,5 +23,5 @@ logs/
 **/logs/
 
 # ===== Unsloth artifacts =====
-**/unsloth_compiled_cache
+**/unsloth_compiled_cache/
 **/unsloth_env_audit_*/

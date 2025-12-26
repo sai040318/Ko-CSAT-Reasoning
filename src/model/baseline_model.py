@@ -12,7 +12,6 @@ from peft import LoraConfig, get_peft_model, TaskType, AutoPeftModelForCausalLM
 from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
 from src.model.base_model import BaseModel
-from trl import DataCollatorForCompletionOnlyLM
 from src.utils.registry import MODEL_REGISTRY
 
 @MODEL_REGISTRY.register("baseline")
@@ -21,17 +20,17 @@ class BaselineModel(BaseModel):
     대회 베이스라인 모델 (SFT + LoRA + Logit Selection).
     """
     
-    @staticmethod
-    def get_tokenizer(model_name_or_path: str, **kwargs):
-        """
-        Gemma 모델에 특화된 토크나이저 로드 및 Chat Template 설정
-        """
-        # 부모 클래스의 기본 설정을 먼저 수행
-        tokenizer = BaseModel.get_tokenizer(model_name_or_path, **kwargs)
+    # @staticmethod
+    # def get_tokenizer(model_name_or_path: str, **kwargs):
+    #     """
+    #     Gemma 모델에 특화된 토크나이저 로드 및 Chat Template 설정
+    #     """
+    #     # 부모 클래스의 기본 설정을 먼저 수행
+    #     tokenizer = BaseModel.get_tokenizer(model_name_or_path, **kwargs)
         
-        # Gemma Chat Template 설정
-        tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
-        return tokenizer
+    #     # Gemma Chat Template 설정
+    #     tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
+    #     return tokenizer
 
     def __init__(self, model_name_or_path: str, use_peft: bool = True, **kwargs):
         super().__init__(model_name_or_path, **kwargs)
@@ -100,11 +99,6 @@ class BaselineModel(BaseModel):
             f1 = f1_score(label_indices, preds, average='macro', zero_division=0)
             return {"macro_f1": f1}
 
-        data_collator = DataCollatorForCompletionOnlyLM(
-            response_template="<start_of_turn>model",
-            tokenizer=self.tokenizer,
-        )
-
         # kwargs에 있는 설정들을 SFTConfig로 전달
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
@@ -118,13 +112,14 @@ class BaselineModel(BaseModel):
             logging_steps=kwargs.get("logging_steps", 100),
             eval_steps=kwargs.get("eval_steps", 50),
             save_strategy=kwargs.get("save_strategy", "epoch"),
-            eval_strategy=kwargs.get("evaluation_strategy", "epoch"),  # evaluation_strategy -> eval_strategy
+            eval_strategy=kwargs.get("evaluation_strategy", "epoch"),
             save_total_limit=kwargs.get("save_total_limit", 2),
             save_only_model=kwargs.get("save_only_model", True),
-            fp16=kwargs.get("fp16", True),  # fp16 기본값
-            bf16=kwargs.get("bf16", False),  # bf16 기본값은 False
+            fp16=kwargs.get("fp16", True),
+            bf16=kwargs.get("bf16", False),
             report_to=kwargs.get("report_to", "none"),
             packing=False,
+            completion_only_loss=True,
         )
 
         trainer = SFTTrainer(
@@ -132,7 +127,6 @@ class BaselineModel(BaseModel):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
-            data_collator=data_collator,
             compute_metrics=compute_metrics,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
