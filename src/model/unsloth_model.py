@@ -28,6 +28,7 @@ class UnslothModel(BaseModel):
             model_name=model_name_or_path,
             max_seq_length=self.max_seq_length,
             load_in_4bit=self.load_in_4bit,
+            attn_implementation="sdpa",  # Unsloth의 고속 어텐션 방식 활용
         )
         
         self.tokenizer.pad_token = self.tokenizer.eos_token
