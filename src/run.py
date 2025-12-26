@@ -43,6 +43,7 @@ def main(cfg: DictConfig):
             lora_alpha=cfg.model.lora_alpha,
             lora_dropout=cfg.model.lora_dropout,
             lora_target_modules=cfg.model.lora_target_modules,
+            max_seq_length=cfg.model.max_seq_length,
             lora_bias=cfg.model.lora_bias,
             **cfg.training # 학습 관련 설정 전달
         )
@@ -82,6 +83,7 @@ def main(cfg: DictConfig):
             lora_alpha=cfg.model.lora_alpha,
             lora_dropout=cfg.model.lora_dropout,
             lora_target_modules=cfg.model.lora_target_modules,
+            max_seq_length=cfg.model.max_seq_length,
             lora_bias=cfg.model.lora_bias,
         )
         tokenizer = model.tokenizer
@@ -152,6 +154,7 @@ def main(cfg: DictConfig):
             lora_dropout=cfg.model.lora_dropout,
             lora_target_modules=cfg.model.lora_target_modules,
             lora_bias=cfg.model.lora_bias,
+            max_seq_length=cfg.model.max_seq_length,
         )
 
         tokenizer = model.tokenizer
