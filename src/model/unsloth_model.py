@@ -79,7 +79,7 @@ class UnslothModel(BaseModel):
             eval_strategy=kwargs.get("eval_strategy", "epoch"),
             fp16=kwargs.get("fp16", True),
             bf16=kwargs.get("bf16", False),
-            packing=False,
+            packing=kwargs.get("packing", True),
             report_to="none",
             **loss_config,
         )
