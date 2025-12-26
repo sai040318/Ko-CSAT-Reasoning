@@ -49,6 +49,7 @@ class BaselineDataset(BaseDataset):
         template: str = "base",
         add_generation_prompt: bool = False,
         filter_over_length: bool = False,
+        truncation: bool = True,
         **kwargs,
     ) -> DatasetDict:
 
@@ -78,7 +79,8 @@ class BaselineDataset(BaseDataset):
 
                 return tokenizer(
                     prompts,
-                    truncation=False,
+                    truncation=truncation,
+                    max_length=max_length,
                     padding=False,
                 )
 
@@ -96,7 +98,8 @@ class BaselineDataset(BaseDataset):
 
             return tokenizer(
                 formatted_prompts,
-                truncation=False,
+                truncation=truncation,
+                max_length=max_length,
                 padding=False,
             )
 

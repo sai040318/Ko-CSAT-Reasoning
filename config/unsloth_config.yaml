@@ -19,9 +19,11 @@ dataset:
     train:
       add_generation_prompt: false
       filter_over_length: true
+      truncation: true
     inference:
       add_generation_prompt: true
       filter_over_length: false
+      truncation: true
 
 # 프롬프트 탬플릿(txt) 설정
 prompt:
@@ -32,7 +34,7 @@ model:
   type: unsloth 
   model_name_or_path: "unsloth/gemma-2b-it-bnb-4bit"
   use_peft: true
-  max_seq_length: 2048 # Unsloth은 긴 시퀀스도 잘 처리함
+  max_seq_length: 8192 # Unsloth은 긴 시퀀스도 잘 처리함
   load_in_4bit: true   # Unsloth 4bit 로드
   
   # LoRA 설정 (Unsloth 최적화 값)
@@ -60,6 +62,7 @@ training:
   save_only_model: true
   fp16: true
   bf16: false
+  packing: true
   report_to: "wandb"
 
 # 추론 설정
