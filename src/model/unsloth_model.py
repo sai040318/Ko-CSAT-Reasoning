@@ -3,9 +3,9 @@ import numpy as np
 from sklearn.metrics import f1_score
 from typing import Any, Dict, Optional
 from datasets import Dataset
-from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
 from unsloth import FastLanguageModel
+from trl import SFTTrainer, SFTConfig
 
 from src.model.base_model import BaseModel
 from src.utils.registry import MODEL_REGISTRY
@@ -67,7 +67,8 @@ class UnslothModel(BaseModel):
             loss_config = dict(completion_only_loss=True)
         else:
             # llama / qwen
-            loss_config = dict(assistant_only_loss=True)
+            loss_config = dict(completion_only_loss=True)
+            # loss_config = dict(assistant_only_loss=True)
 
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
@@ -90,6 +91,7 @@ class UnslothModel(BaseModel):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
+            processing_class=self.tokenizer,
         )
 
         # ================================
