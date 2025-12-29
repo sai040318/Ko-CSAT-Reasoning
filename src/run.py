@@ -1,3 +1,4 @@
+import unsloth 
 import hydra
 import pandas as pd
 import os
@@ -66,25 +67,21 @@ def main(cfg: DictConfig):
         # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
         
+        # ⚠️ eval_dataset=None으로 설정하여 evaluation 문제 회피
         model.train(
             train_dataset=split_dataset["train"],
-            eval_dataset=split_dataset["test"],
+            eval_dataset=None,  # ← 수정: Packing과 evaluation 충돌 방지
             **cfg.training
         )
         
     elif cfg.mode == "inference":
         print("🚀 추론 모드 시작")
         
-        # 2-1. Model 초기화 (구조만 생성, 가중치는 로드하지 않음)
+        # 2-1. Model 초기화 (skip_init=True로 tokenizer만 로드)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
-            use_peft=cfg.model.use_peft,
-            lora_r=cfg.model.lora_r,
-            lora_alpha=cfg.model.lora_alpha,
-            lora_dropout=cfg.model.lora_dropout,
-            lora_target_modules=cfg.model.lora_target_modules,
+            skip_init=True,  # ⭐ 모델 초기화 스킵, 나중에 load_model()에서 로드
             max_seq_length=cfg.model.max_seq_length,
-            lora_bias=cfg.model.lora_bias,
         )
         tokenizer = model.tokenizer
         
@@ -145,15 +142,10 @@ def main(cfg: DictConfig):
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
         
-        # Model 초기화
+        # Model 초기화 (skip_init=True로 tokenizer만 로드)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
-            use_peft=cfg.model.use_peft,
-            lora_r=cfg.model.lora_r,
-            lora_alpha=cfg.model.lora_alpha,
-            lora_dropout=cfg.model.lora_dropout,
-            lora_target_modules=cfg.model.lora_target_modules,
-            lora_bias=cfg.model.lora_bias,
+            skip_init=True,  # ⭐ 모델 초기화 스킵, 나중에 load_model()에서 로드
             max_seq_length=cfg.model.max_seq_length,
         )
 
