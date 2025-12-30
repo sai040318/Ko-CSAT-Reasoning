@@ -129,35 +129,40 @@ class UnslothModel(BaseModel):
             self.save_model(kwargs.get("output_dir", "./output"))
 
     def evaluate(self, dataset: Dataset, **kwargs) -> Dict[str, float]:
-        # Unsloth 추론 모드 (속도 2배 향상)
         FastLanguageModel.for_inference(self.model)
         
         infer_results = []
         labels = []
         
-        # ✅ 안전한 토큰 ID 추출 방법
-        target_token_ids = [
-            self.tokenizer.encode(str(i), add_special_tokens=False)[0]
-            for i in range(1, 6)
-        ]
-
+        num_tokens = {}
+        for i in range(1, 6):
+            token_text = str(i)
+            token_id = self.tokenizer.encode(token_text, add_special_tokens=False)[0]
+            num_tokens[i] = token_id
+        
+        print(f" 1~5 토큰ID: {num_tokens}")
+        
         for example in dataset:
-            inputs = torch.tensor([example["input_ids"]]).to(self.device)
+            inputs = {"input_ids": torch.tensor([example["input_ids"]]).to(self.device)}
+            
+            # logits 계산
             with torch.no_grad():
-                outputs = self.model(inputs)
-                logits = outputs.logits[:, -1, target_token_ids].flatten().cpu()
-                probs = torch.nn.functional.softmax(logits, dim=-1).numpy()
-                pred_idx = np.argmax(probs)
-                infer_results.append(pred_idx)
-                
-                if "answer" in example:
-                    label_val = int(example["answer"]) - 1
-                elif "label" in example:
-                    label_val = int(example["label"]) - 1
-                else:
-                    label_val = 0
-                labels.append(label_val)
-
+                outputs = self.model(**inputs)
+                logits = outputs.logits[0, -1, :]  # 마지막 토큰 logits
+            
+            # 1~5 중 최고 확률
+            scores = [logits[num_tokens[i]].item() for i in range(1, 6)]
+            pred_idx = np.argmax(scores)  # 0~4 인덱스
+            
+            print(f"Scores: {[f'{i}:{s:.1f}' for i,s in enumerate(scores,1)]} → Predicted: {pred_idx+1}")
+            
+            infer_results.append(pred_idx)
+            
+            # 레이블
+            label_val = int(example["answer"]) - 1 if example["answer"] else 0
+            print(f"Answer: {label_val+1}, Predicted: {pred_idx+1}") #디버깅
+            labels.append(label_val)
+        
         score = f1_score(labels, infer_results, average='macro', zero_division=0)
         return {"macro_f1": score}
 

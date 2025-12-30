@@ -109,7 +109,7 @@ class BaselineDataset(BaseDataset):
             remove_columns=[
                 col
                 for col in self.dataset["train"].column_names
-                if col not in ["id"]
+                if col not in ["id","answer"]
             ],
             num_proc=4,
             load_from_cache_file=True,
