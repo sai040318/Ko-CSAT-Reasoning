@@ -83,22 +83,32 @@ def main(cfg: DictConfig):
         )
 
     elif cfg.mode == "inference":
-        print("🚀 추론 모드 시작")
+        logger.info("추론 모드 시작")
 
         # TODO: 추후에 인터페이스 변경하지 않고 진행
         # model_cls에 아예 cfg나 .yaml 경로를 통째로 넘겨서 내부 로직에서 처리하도록 변경
         # 2-1. Model 초기화
         # Ollama 모델 여부 확인 (tokenizer가 없는 모델)
-        is_ollama_model = cfg.model.type in ["qwen3-2507-thinking"]
+        is_ollama_model = cfg.model.type in ["qwen3-ollama"]
+        logger.debug(f"is_ollama_model: {is_ollama_model}")
 
         if is_ollama_model:
+            logger.debug("Ollama 모델로 인식됨")
             # Ollama 모델은 간단히 초기화 (ollama 설정 전달)
+
+            try:
+                ollama_config = OmegaConf.to_container(cfg.inference.get("ollama"), resolve=True)
+            except Exception:
+                raise ValueError("inference.ollama 설정을 불러오는 데 실패했습니다.")
+
+            logger.debug(f"ollama_config: {ollama_config}")
             model = model_cls(
                 model_name_or_path=cfg.model.get("model_name_or_path", ""),
-                ollama=OmegaConf.to_container(cfg.inference.get("ollama", {}), resolve=True),
+                ollama=ollama_config,
             )
             tokenizer = None  # Ollama 모델은 토크나이저 불필요
         else:
+            logger.debug("기존 HuggingFace 모델로 인식됨")
             # 기존 HuggingFace 모델 초기화
             model = model_cls(
                 model_name_or_path=cfg.model.model_name_or_path,
@@ -133,40 +143,43 @@ def main(cfg: DictConfig):
         test_dataset_path = cfg.inference.get("test_dataset_path", "data/test.csv")
         if not os.path.exists(test_dataset_path):
             raise ValueError(f"테스트 데이터셋 경로를 찾을 수 없습니다: {test_dataset_path}")
-        
-        print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
+
+        logger.info(f"테스트 데이터셋 로드 중: {test_dataset_path}")
         test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         test_dataset = test_dataset_cls(test_dataset_path)
+        logger.info("테스트 데이터셋 전처리 시작")
+        # logger.info(f"전처리 옵션: {cfg.model.max_seq_length}, {cfg.prompt.name}, {cfg.dataset.preprocess.inference}")
+        logger.info(f"cfg inference {cfg.inference}")
         processed_test_dataset = test_dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.inference
+            tokenizer,
+            max_length=cfg.model.max_seq_length,
+            template=cfg.prompt.name,
+            **cfg.dataset.preprocess.inference,
         )
-        
+        logger.info("테스트 데이터셋 전처리 완료")
+
         # 2-4. 추론 수행
-        predictions = model.predict(
-            dataset=processed_test_dataset["train"],
-            **cfg.inference
-        )
-        
+        predictions = model.predict(dataset=processed_test_dataset["train"], **cfg.inference)
+
         # 2-5. 결과 출력 (일부만)
-        print(f"총 {len(predictions)}개 예측 완료")
-        print(f"샘플 예측 결과: {list(predictions.items())[:3]}")
-        
+        logger.info(f"총 {len(predictions)}개 예측 완료")
+        logger.info(f"예측 결과 샘플: {list(predictions.items())[:3]}")
+
         # 2-6. output.csv 저장
-        output_path = cfg.inference.get("output_path", "output/output.csv")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
+        # TODO: 경로 깔끔하게 정리
+        # 파일명 덮어쓰지 않도록 수정
+        output_path = Path(cfg.inference.get("output_path", "outputs/fallback"))
+        os.makedirs(output_path, exist_ok=True)
+        file_name = f"{current_config_name}_output.csv"
+        final_output_path = output_path.joinpath(file_name)
+
         # predictions 딕셔너리를 DataFrame으로 변환
-        df_output = pd.DataFrame([
-            {"id": id, "answer": answer} 
-            for id, answer in predictions.items()
-        ])
+        df_output = pd.DataFrame([{"id": id, "answer": answer} for id, answer in predictions.items()])
         df_output = df_output.sort_values("id")  # id 순서대로 정렬
-        df_output.to_csv(output_path, index=False)
-        print(f"결과 저장 완료: {output_path}")
-        
+        logger.info(f"결과를 {final_output_path}에 저장합니다.")
+        df_output.to_csv(final_output_path, index=False)
+        print(f"결과 저장 완료: {final_output_path}")
+
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
 
