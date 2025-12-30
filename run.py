@@ -41,6 +41,8 @@ def main(cfg: DictConfig):
 
     # 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
+        logger.info("학습 모드 시작")
+        logger.info(f"모델 인스턴스화: {model_cls.__name__}")
         # Model 초기화
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
@@ -53,13 +55,15 @@ def main(cfg: DictConfig):
             lora_bias=cfg.model.lora_bias,
             **cfg.training,  # 학습 관련 설정 전달
         )
-
         tokenizer = model.tokenizer
 
+        # Dataset 클래스 로드
+        logger.info(f"데이터셋 인스턴스화: {cfg.dataset.type}")
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
 
         # Dataset 로드 및 전처리
+        logger.info("데이터셋 전처리 시작")
         processed_dataset = dataset.preprocess(
             tokenizer,
             max_length=cfg.model.max_seq_length,
@@ -67,7 +71,8 @@ def main(cfg: DictConfig):
             **cfg.dataset.preprocess.train,
         )
 
-        print("🚀 학습 모드 시작")
+        logger.info("데이터셋 전처리 완료")
+
         # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
 
