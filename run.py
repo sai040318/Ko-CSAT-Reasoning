@@ -3,29 +3,36 @@ import pandas as pd
 import os
 import sys
 import re
+import logging
 from pathlib import Path
-
-# 프로젝트 루트를 sys.path에 추가
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
 from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
+from hydra.core.hydra_config import HydraConfig
+
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
-from src.utils.utils import set_seed
+from src.utils import set_seed, get_logger, wait_for_gpu_availability
 
 # 레지스트리에 모델과 데이터셋을 등록하기 위해 import
 # __init__.py에서 자동으로 baseline_model과 baseline_data를 import함
-import src.model  # noqa: F401
-import src.data  # noqa: F401 
+
+logger = get_logger(__name__, level=logging.DEBUG)
+
 
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
-@hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
+@hydra.main(version_base=None, config_path="config", config_name="test_config")
 def main(cfg: DictConfig):
     # 난수 시드 고정
+    wait_for_gpu_availability()
     set_seed(cfg.seed)
-    
+    hydra_cfg = HydraConfig.get()
+    # logger.debug(f"설정 파일:\n{OmegaConf.to_yaml(cfg)}")
+    logger.debug(f"mode(train, inference, evaluate): {cfg.mode}")
+    current_config_name = hydra_cfg.job.config_name
+    logger.debug(f"config file path: {current_config_name}")
+    logger.debug(f"model_type: {cfg.model.type}")
+    logger.debug(f"model_name_or_path: {cfg.model.model_name_or_path}")
+    logger.debug(f"dataset_type: {cfg.dataset.type}")
     print(OmegaConf.to_yaml(cfg))
 
     # 모델 클래스 로드 및 Tokenizer 초기화
