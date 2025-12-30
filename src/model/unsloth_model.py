@@ -7,6 +7,7 @@ from datasets import Dataset
 from omegaconf import ListConfig
 from unsloth import FastLanguageModel
 from trl import SFTTrainer, SFTConfig
+from tqdm import tqdm
 
 from src.model.base_model import BaseModel
 from src.utils.registry import MODEL_REGISTRY
@@ -86,7 +87,7 @@ class UnslothModel(BaseModel):
             max_grad_norm=kwargs.get("max_grad_norm", 1.0),
             logging_steps=kwargs.get("logging_steps", 50),
             save_strategy=kwargs.get("save_strategy", "epoch"),
-            eval_strategy=kwargs.get("eval_strategy", "no"),
+            eval_strategy=kwargs.get("eval_strategy", "epoch"),
             save_total_limit=kwargs.get("save_total_limit", None),
             fp16=kwargs.get("fp16", True),
             bf16=kwargs.get("bf16", False),
@@ -99,7 +100,7 @@ class UnslothModel(BaseModel):
         trainer = SFTTrainer(
             model=self.model,
             train_dataset=train_dataset,
-            eval_dataset=None if kwargs.get("eval_strategy", "no") == "no" else eval_dataset,
+            eval_dataset=None if training_args.eval_strategy == "no" else eval_dataset,
             args=training_args,
             processing_class=self.tokenizer,
         )
@@ -177,7 +178,7 @@ class UnslothModel(BaseModel):
             for i in range(1, 6)
         ]
 
-        for example in dataset:
+        for example in tqdm(dataset, desc="Predicting", total=len(dataset)):
             inputs = torch.tensor([example["input_ids"]]).to(self.device)
             with torch.no_grad():
                 logits = self.model(inputs).logits
