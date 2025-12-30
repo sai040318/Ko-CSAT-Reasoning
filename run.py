@@ -152,7 +152,7 @@ def main(cfg: DictConfig):
         
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
-        
+
         # Model 초기화
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
@@ -171,22 +171,24 @@ def main(cfg: DictConfig):
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
         processed_dataset = dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.inference
+            tokenizer,
+            max_length=cfg.model.max_seq_length,
+            template=cfg.prompt.name,
+            **cfg.dataset.preprocess.inference,
         )
 
         # 2-3. 학습된 모델 로드 (선택사항)
-        model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
-        if os.path.exists(model_load_path):
-            print(f"모델 로드 중: {model_load_path}")
-            model.load_model(model_load_path)
-        
+        # model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
+        # if os.path.exists(model_load_path):
+            pass
+            # print(f"모델 로드 중: {model_load_path}")
+            # model.load_model(model_load_path)
+
         # 2-4. 학습 데이터셋 일부를 사용하여 평가 (임시)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
         metrics = model.evaluate(split_dataset["test"])
         print(f"평가 결과: {metrics}")
+
 
 if __name__ == "__main__":
     main()
