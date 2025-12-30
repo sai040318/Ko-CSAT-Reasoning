@@ -1,0 +1,74 @@
+# 기본 설정
+mode: inference # train, inference, evaluate
+seed: 42
+exp_name: exaone
+
+# Hydra 설정
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+
+# 데이터셋 설정
+dataset:
+  type: baseline
+  path: data/train.csv
+  
+  # 전처리 옵션
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: true
+    inference:
+      add_generation_prompt: true
+      filter_over_length: false
+
+# 프롬프트 탬플릿(txt) 설정
+prompt:
+  name: base
+
+# 모델 설정 (Baseline: beomi/gemma-ko-2b)
+model:
+  type: exaone
+  model_name_or_path: "LGAI-EXAONE/EXAONE-4.0-32B-AWQ"
+  use_peft: false
+  max_seq_length: 2500
+  
+  # LoRA 설정 (Baseline과 동일하게 맞춤)
+  lora_r: 6
+  lora_alpha: 8
+  lora_dropout: 0.05
+  lora_target_modules: ['q_proj', 'k_proj'] # 중요: 타겟 모듈 명시
+  lora_bias: "none"
+
+# 학습 설정 (SFTConfig 전달용)
+training:
+  output_dir: output/outputs_gemma
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+  learning_rate: 2e-5
+  lr_scheduler_type: "cosine" # 중요: Baseline은 cosine 사용
+  weight_decay: 0.01
+  logging_steps: 100 # Baseline은 1 step마다 로깅
+  eval_steps: 50
+  save_strategy: "epoch"
+  evaluation_strategy: "epoch"
+  save_total_limit: 2
+  save_only_model: true
+  fp16: true 
+  bf16: false  
+  report_to: "none"
+
+# 추론 설정
+inference:
+  max_new_tokens: 1
+  batch_size: 1
+  test_dataset_path: data/test.csv  # 테스트 데이터셋 경로
+  model_load_path: output/outputs_exaone  # 학습된 모델 경로 (기본값: training.output_dir)
+  output_path: output/output.csv  # 결과 저장 경로
+
+# RAG 설정 (미사용)
+rag:
+  use: false
