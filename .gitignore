@@ -29,3 +29,12 @@ logs/
 # ===== unused docs =====
 COMPETITION_GUIDE.md
 AGENTS.md
+
+# ===== uv env =====
+**/sota_inference.egg-info/
+
+# ===== init server status =====
+**/init_status/
+
+# ===== Ollama model files =====
+**/ollama-python/

@@ -45,7 +45,7 @@ model:
 # 추론 설정
 inference:
   test_dataset_path: data/test.csv
-  output_path: outputs/qwen3_2507_thinking
+  output_path: output/qwen3_2507_thinking
 
   # Ollama 설정
   # https://github.com/ollama/ollama/blob/main/docs/modelfile.mdx#valid-parameters-and-values

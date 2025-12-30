@@ -13,6 +13,7 @@ from src.utils.registry import MODEL_REGISTRY
 from src.prompt.qwen3_2507_thinking_prompt import Qwen3ThinkingPromptBuilder
 
 # TODO 전역적으로 사용할 로그 고민
+# tqdm 쓰니까 logging이 안남음
 logger = logging.getLogger(__name__)
 
 
