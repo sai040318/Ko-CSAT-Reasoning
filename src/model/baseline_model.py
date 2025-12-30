@@ -3,23 +3,21 @@ import numpy as np
 from sklearn.metrics import f1_score
 from typing import Any, Dict, Optional, List
 from datasets import Dataset
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig
-)
-from peft import LoraConfig, get_peft_model, TaskType, AutoPeftModelForCausalLM
-from trl import SFTTrainer, SFTConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+# from peft import LoraConfig, get_peft_model, TaskType, AutoPeftModelForCausalLM
+# from trl import SFTTrainer, SFTConfig
 from omegaconf import ListConfig
 from src.model.base_model import BaseModel
 from src.utils.registry import MODEL_REGISTRY
+
 
 @MODEL_REGISTRY.register("baseline")
 class BaselineModel(BaseModel):
     """
     대회 베이스라인 모델 (SFT + LoRA + Logit Selection).
     """
-    
+
     # @staticmethod
     # def get_tokenizer(model_name_or_path: str, **kwargs):
     #     """
@@ -27,7 +25,7 @@ class BaselineModel(BaseModel):
     #     """
     #     # 부모 클래스의 기본 설정을 먼저 수행
     #     tokenizer = BaseModel.get_tokenizer(model_name_or_path, **kwargs)
-        
+
     #     # Gemma Chat Template 설정
     #     tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<start_of_turn>user\n' + content + '<end_of_turn>\n<start_of_turn>model\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<end_of_turn>\n' }}{% endif %}{% endfor %}"
     #     return tokenizer
@@ -41,18 +39,18 @@ class BaselineModel(BaseModel):
             self.model_name_or_path,
             torch_dtype=torch.float16,
             device_map="auto",
-            trust_remote_code=True
+            trust_remote_code=True,
         )
-        
+
         # get_tokenizer를 사용하여 토크나이저 초기화
         self.tokenizer = self.get_tokenizer(self.model_name_or_path)
 
         if self.use_peft:
             # Hydra의 ListConfig를 일반 Python 리스트로 변환
-            target_modules = kwargs.get("lora_target_modules", ['q_proj', 'k_proj'])
+            target_modules = kwargs.get("lora_target_modules", ["q_proj", "k_proj"])
             if isinstance(target_modules, ListConfig):
                 target_modules = list(target_modules)
-            
+
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
                 inference_mode=False,
@@ -65,10 +63,13 @@ class BaselineModel(BaseModel):
             self.model = get_peft_model(self.model, peft_config)
             self.model.print_trainable_parameters()
 
-    def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None, **kwargs):
+    def train(
+        self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None, **kwargs
+    ):
         """
         TRL의 SFTTrainer를 사용한 학습 수행 (Logit Selection 전처리 포함)
         """
+
         # 모델의 logits를 조정하여 정답 토큰(1~5) 부분만 출력하도록 설정
         def preprocess_logits_for_metrics(logits, labels):
             logits = logits if not isinstance(logits, tuple) else logits[0]
@@ -81,11 +82,13 @@ class BaselineModel(BaseModel):
         # Metric 계산 함수 (Macro F1)
         def compute_metrics(evaluation_result):
             logits, labels = evaluation_result
-            
+
             # 레이블 전처리 (-100 무시)
             labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-            
+            decoded_labels = self.tokenizer.batch_decode(
+                labels, skip_special_tokens=True
+            )
+
             # 정답 문자열에서 숫자 추출 (문자열 -> 정수 인덱스 0~4)
             label_indices = []
             for l in decoded_labels:
@@ -94,9 +97,9 @@ class BaselineModel(BaseModel):
 
             # 예측값 계산 (Softmax 후 argmax)
             preds = np.argmax(logits, axis=-1)
-            
+
             # Macro F1 계산
-            f1 = f1_score(label_indices, preds, average='macro', zero_division=0)
+            f1 = f1_score(label_indices, preds, average="macro", zero_division=0)
             return {"macro_f1": f1}
 
         # kwargs에 있는 설정들을 SFTConfig로 전달
@@ -132,7 +135,7 @@ class BaselineModel(BaseModel):
         )
 
         trainer.train()
-        
+
         # 학습 끝난 후 저장
         if kwargs.get("save_model", True):
             self.save_model(kwargs.get("output_dir", "./output"))
@@ -144,13 +147,13 @@ class BaselineModel(BaseModel):
         self.model.eval()
         infer_results = []
         labels = []
-        
+
         # 숫자 1~5에 해당하는 토큰 ID 준비
         target_token_ids = [self.tokenizer.vocab[str(i)] for i in range(1, 6)]
 
         for example in dataset:
             inputs = torch.tensor([example["input_ids"]]).to(self.device)
-            
+
             with torch.no_grad():
                 outputs = self.model(inputs)
                 # 마지막 토큰의 logits 추출 (-1)
@@ -160,17 +163,17 @@ class BaselineModel(BaseModel):
                 # 가장 확률 높은 인덱스(0~4) 선택
                 pred_idx = np.argmax(probs)
                 infer_results.append(pred_idx)
-                
+
                 # 정답 라벨 처리 (1~5 -> 0~4)
                 if "answer" in example:
                     label_val = int(example["answer"]) - 1
-                elif "label" in example: # preprocess 결과에 따라 컬럼명이 다를 수 있음
+                elif "label" in example:  # preprocess 결과에 따라 컬럼명이 다를 수 있음
                     label_val = int(example["label"]) - 1
                 else:
-                    label_val = 0 # Default
+                    label_val = 0  # Default
                 labels.append(label_val)
 
-        score = f1_score(labels, infer_results, average='macro', zero_division=0)
+        score = f1_score(labels, infer_results, average="macro", zero_division=0)
         return {"macro_f1": score}
 
     def predict(self, dataset: Dataset, **kwargs) -> Dict[str, Any]:
@@ -179,9 +182,9 @@ class BaselineModel(BaseModel):
         """
         self.model.eval()
         predictions = {}
-        
+
         target_token_ids = [self.tokenizer.vocab[str(i)] for i in range(1, 6)]
-        pred_choices_map = {i: str(i+1) for i in range(5)} # 0->'1', 1->'2'...
+        pred_choices_map = {i: str(i + 1) for i in range(5)}  # 0->'1', 1->'2'...
 
         for example in dataset:
             inputs = torch.tensor([example["input_ids"]]).to(self.device)
@@ -190,10 +193,10 @@ class BaselineModel(BaseModel):
                 outputs = self.model(inputs)
                 logits = outputs.logits[:, -1, target_token_ids].flatten().cpu()
                 probs = torch.nn.functional.softmax(logits, dim=-1).numpy()
-                
+
                 # 가장 확률 높은 정답 선택
                 pred_val = pred_choices_map[np.argmax(probs)]
-                predictions[example['id']] = pred_val
+                predictions[example["id"]] = pred_val
 
         return predictions
 
@@ -211,7 +214,9 @@ class BaselineModel(BaseModel):
         )
 
         # 2) 토크나이저도 동일 경로에서 로드(권장)
-        self.tokenizer = AutoTokenizer.from_pretrained(load_path, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            load_path, trust_remote_code=True
+        )
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.tokenizer.padding_side = "right"
