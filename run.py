@@ -38,10 +38,9 @@ def main(cfg: DictConfig):
     # 모델 클래스 로드 및 Tokenizer 초기화
     # 모델에 맞는 토크나이저(Chat Template 포함)를 가져오기 위해 모델 클래스를 먼저 로드합니다.
     model_cls = MODEL_REGISTRY.get(cfg.model.type)
-    
+
     # 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
-
         # Model 초기화
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
@@ -52,7 +51,7 @@ def main(cfg: DictConfig):
             lora_target_modules=cfg.model.lora_target_modules,
             max_seq_length=cfg.model.max_seq_length,
             lora_bias=cfg.model.lora_bias,
-            **cfg.training # 학습 관련 설정 전달
+            **cfg.training,  # 학습 관련 설정 전달
         )
 
         tokenizer = model.tokenizer
@@ -62,38 +61,51 @@ def main(cfg: DictConfig):
 
         # Dataset 로드 및 전처리
         processed_dataset = dataset.preprocess(
-            tokenizer, 
-            max_length=cfg.model.max_seq_length, 
-            template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.train
+            tokenizer,
+            max_length=cfg.model.max_seq_length,
+            template=cfg.prompt.name,
+            **cfg.dataset.preprocess.train,
         )
-
 
         print("🚀 학습 모드 시작")
         # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
-        
+
         model.train(
             train_dataset=split_dataset["train"],
             eval_dataset=split_dataset["test"],
-            **cfg.training
+            **cfg.training,
         )
-        
+
     elif cfg.mode == "inference":
         print("🚀 추론 모드 시작")
-        
-        # 2-1. Model 초기화 (구조만 생성, 가중치는 로드하지 않음)
-        model = model_cls(
-            model_name_or_path=cfg.model.model_name_or_path,
-            use_peft=cfg.model.use_peft,
-            lora_r=cfg.model.lora_r,
-            lora_alpha=cfg.model.lora_alpha,
-            lora_dropout=cfg.model.lora_dropout,
-            lora_target_modules=cfg.model.lora_target_modules,
-            max_seq_length=cfg.model.max_seq_length,
-            lora_bias=cfg.model.lora_bias,
-        )
-        tokenizer = model.tokenizer
+
+        # TODO: 추후에 인터페이스 변경하지 않고 진행
+        # model_cls에 아예 cfg나 .yaml 경로를 통째로 넘겨서 내부 로직에서 처리하도록 변경
+        # 2-1. Model 초기화
+        # Ollama 모델 여부 확인 (tokenizer가 없는 모델)
+        is_ollama_model = cfg.model.type in ["qwen3-2507-thinking"]
+
+        if is_ollama_model:
+            # Ollama 모델은 간단히 초기화 (ollama 설정 전달)
+            model = model_cls(
+                model_name_or_path=cfg.model.get("model_name_or_path", ""),
+                ollama=OmegaConf.to_container(cfg.inference.get("ollama", {}), resolve=True),
+            )
+            tokenizer = None  # Ollama 모델은 토크나이저 불필요
+        else:
+            # 기존 HuggingFace 모델 초기화
+            model = model_cls(
+                model_name_or_path=cfg.model.model_name_or_path,
+                use_peft=cfg.model.use_peft,
+                lora_r=cfg.model.lora_r,
+                lora_alpha=cfg.model.lora_alpha,
+                lora_dropout=cfg.model.lora_dropout,
+                lora_target_modules=cfg.model.lora_target_modules,
+                max_seq_length=cfg.model.max_seq_length,
+                lora_bias=cfg.model.lora_bias,
+            )
+            tokenizer = model.tokenizer
 
         # 2-2. 학습된 모델 로드
         # model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
