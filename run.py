@@ -1,14 +1,17 @@
+# from unsloth import FastLanguageModel  # unsloth import는 반드시 최상단에 위치해야함
 import hydra
 import pandas as pd
 import os
-import sys
 import re
 import logging
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
-from transformers import AutoTokenizer
+
+# from transformers import AutoTokenizer
 from hydra.core.hydra_config import HydraConfig
 
+import src.model
+import src.data
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
 from src.utils import set_seed, get_logger, wait_for_gpu_availability
 
@@ -18,6 +21,7 @@ from src.utils import set_seed, get_logger, wait_for_gpu_availability
 logger = get_logger(__name__, level=logging.DEBUG)
 
 
+# TODO: 시작 - 끝 타이머 추가 / 종료 기록
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
 @hydra.main(version_base=None, config_path="config", config_name="test_config")
