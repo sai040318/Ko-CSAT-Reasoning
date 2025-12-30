@@ -51,15 +51,17 @@ class Qwen3ThinkingPromptBuilder:
         pattern = re.compile(r"<(SYSTEM|USER|ASSISTANT)>(.*?)</\1>", re.S)
 
         for role, content in pattern.findall(text):
-            messages.append({
-                "role": role.lower(),
-                "content": content.strip(),
-            })
+            messages.append(
+                {
+                    "role": role.lower(),
+                    "content": content.strip(),
+                }
+            )
         return messages
 
     def _format_choices(self, choices: list[str]) -> str:
         """선택지를 포맷팅"""
-        return "\n".join(f"{idx+1} - {choice}" for idx, choice in enumerate(choices))
+        return "\n".join(f"{idx + 1} - {choice}" for idx, choice in enumerate(choices))
 
     def _format_question_plus(self, question_plus: Optional[str]) -> str:
         """보기 포맷팅"""
@@ -67,6 +69,7 @@ class Qwen3ThinkingPromptBuilder:
             return f"<보 기>\n{question_plus}"
         return ""
 
+    # TODO MODELFILE, TEMPLATE 등으로 더 개선
     def build_single(
         self,
         paragraph: str,
@@ -167,6 +170,7 @@ if __name__ == "__main__":
 
     print("=== Single Message ===")
     from pprint import pprint
+
     pprint(single_msg)
 
     # 배치 테스트
