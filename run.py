@@ -192,9 +192,9 @@ def main(cfg: DictConfig):
         # 2-3. 학습된 모델 로드 (선택사항)
         # model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
         # if os.path.exists(model_load_path):
-            pass
-            # print(f"모델 로드 중: {model_load_path}")
-            # model.load_model(model_load_path)
+        # pass
+        # print(f"모델 로드 중: {model_load_path}")
+        # model.load_model(model_load_path)
 
         # 2-4. 학습 데이터셋 일부를 사용하여 평가 (임시)
         split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
