@@ -36,23 +36,18 @@ class ExaoneModel(BaseModel):
         self.use_peft = use_peft
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.device == "cpu":
-            raise ValueError(
-                "모델은 CPU에서 실행할 수 없습니다. GPU 환경에서 실행해주세요."
-            )
+            raise ValueError("모델은 CPU에서 실행할 수 없습니다. GPU 환경에서 실행해주세요.")
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name_or_path,
             device_map="auto",
         )
 
+        # TODO: tokenizer 전략 설정, 어차피 배치 안쓸거면 dynamic padding 혹은 length based padding도 고려
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, padding_side="left")
         # TODO: padding eos_token 실험 진행
         # self.tokenizer.padding_side = "left"
         # self.tokenizer.pad_token = self.tokenizer.eos_token
-        # TODO: tokenizer 전략 설정, 어차피 배치 안쓸거면 dynamic padding 혹은 length based padding도 고려
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name_or_path, padding_side="left"
-        )
-        # self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, padding_side="left")
 
         if self.use_peft:
             # Hydra의 ListConfig를 일반 Python 리스트로 변환
@@ -72,9 +67,7 @@ class ExaoneModel(BaseModel):
             self.model = get_peft_model(self.model, peft_config)
             self.model.print_trainable_parameters()
 
-    def train(
-        self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None, **kwargs
-    ):
+    def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None, **kwargs):
         """
         TRL의 SFTTrainer를 사용한 학습 수행 (Logit Selection 전처리 포함)
         """
@@ -94,9 +87,7 @@ class ExaoneModel(BaseModel):
 
             # 레이블 전처리 (-100 무시)
             labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(
-                labels, skip_special_tokens=True
-            )
+            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
             # 정답 문자열에서 숫자 추출 (문자열 -> 정수 인덱스 0~4)
             label_indices = []
