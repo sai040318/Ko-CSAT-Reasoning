@@ -1,21 +1,22 @@
+# from unsloth import FastLanguageModel  # 반드시 최상단에 위치해야함
 import torch
 import numpy as np
 from sklearn.metrics import f1_score
 from typing import Any, Dict, Optional
 from datasets import Dataset
 from omegaconf import ListConfig
-from unsloth import FastLanguageModel
-from trl import SFTTrainer, SFTConfig
+# from trl import SFTTrainer, SFTConfig
 
 from src.model.base_model import BaseModel
 from src.utils.registry import MODEL_REGISTRY
+
 
 @MODEL_REGISTRY.register("unsloth")
 class UnslothModel(BaseModel):
     """
     Unsloth 라이브러리를 활용한 가속화된 모델 클래스.
     """
-    
+
     def __init__(self, model_name_or_path: str, **kwargs):
         super().__init__(model_name_or_path, **kwargs)
 
@@ -30,7 +31,7 @@ class UnslothModel(BaseModel):
             load_in_4bit=self.load_in_4bit,
             attn_implementation="sdpa",  # Unsloth의 고속 어텐션 방식 활용
         )
-        
+
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
 
@@ -44,8 +45,13 @@ class UnslothModel(BaseModel):
                 target_modules=kwargs.get(
                     "lora_target_modules",
                     [
-                        "q_proj", "k_proj", "v_proj",
-                        "o_proj", "gate_proj", "up_proj", "down_proj",
+                        "q_proj",
+                        "k_proj",
+                        "v_proj",
+                        "o_proj",
+                        "gate_proj",
+                        "up_proj",
+                        "down_proj",
                     ],
                 ),
                 bias=kwargs.get("lora_bias", "none"),
@@ -112,7 +118,6 @@ class UnslothModel(BaseModel):
 
         trainer.compute_loss = types.MethodType(compute_loss_no_entropy, trainer)
 
-
         trainer.train()
 
         if kwargs.get("save_model", True):
@@ -121,7 +126,7 @@ class UnslothModel(BaseModel):
     def evaluate(self, dataset: Dataset, **kwargs) -> Dict[str, float]:
         # Unsloth 추론 모드 (속도 2배 향상)
         FastLanguageModel.for_inference(self.model)
-        
+
         infer_results = []
         labels = []
         target_token_ids = [self.tokenizer.vocab[str(i)] for i in range(1, 6)]
@@ -134,7 +139,7 @@ class UnslothModel(BaseModel):
                 probs = torch.nn.functional.softmax(logits, dim=-1).numpy()
                 pred_idx = np.argmax(probs)
                 infer_results.append(pred_idx)
-                
+
                 if "answer" in example:
                     label_val = int(example["answer"]) - 1
                 elif "label" in example:
@@ -143,7 +148,7 @@ class UnslothModel(BaseModel):
                     label_val = 0
                 labels.append(label_val)
 
-        score = f1_score(labels, infer_results, average='macro', zero_division=0)
+        score = f1_score(labels, infer_results, average="macro", zero_division=0)
         return {"macro_f1": score}
 
     def predict(self, dataset: Dataset, **kwargs) -> Dict[str, Any]:
@@ -173,7 +178,7 @@ class UnslothModel(BaseModel):
         """
         # 1️⃣ Base 모델 재로딩
         self.model, self.tokenizer = FastLanguageModel.from_pretrained(
-            model_name=self.model_name_or_path,   # ⭐ 원래 base 모델
+            model_name=self.model_name_or_path,  # ⭐ 원래 base 모델
             max_seq_length=self.max_seq_length,
             load_in_4bit=self.load_in_4bit,
         )
@@ -182,4 +187,3 @@ class UnslothModel(BaseModel):
         self.model.load_adapter(load_path)
         # 3️⃣ 추론 모드로 전환
         FastLanguageModel.for_inference(self.model)
-
