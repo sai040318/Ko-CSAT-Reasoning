@@ -15,7 +15,7 @@ while true; do
   echo
 
   echo "=== DISK ==="
-  df -h /
+  df -h
   echo
 
   sleep "$INTERVAL"
