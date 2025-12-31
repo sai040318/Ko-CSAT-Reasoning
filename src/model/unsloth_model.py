@@ -130,20 +130,26 @@ class UnslothModel(BaseModel):
             self.save_model(kwargs.get("output_dir", "./output"))
 
     def evaluate(self, dataset: Dataset, **kwargs) -> Dict[str, float]:
+        """
+        평가 데이터셋에 대해 Macro F1 score를 계산합니다.
+        """
         FastLanguageModel.for_inference(self.model)
         
         infer_results = []
         labels = []
         
+        # 1~5 토큰 ID 매핑
         num_tokens = {}
         for i in range(1, 6):
             token_text = str(i)
             token_id = self.tokenizer.encode(token_text, add_special_tokens=False)[0]
             num_tokens[i] = token_id
         
-        print(f" 1~5 토큰ID: {num_tokens}")
+        print(f"✅ 1~5 토큰 ID: {num_tokens}")
+        print(f"📊 평가 시작: 총 {len(dataset)}개 샘플")
         
-        for example in dataset:
+        correct = 0
+        for idx, example in enumerate(tqdm(dataset, desc="Evaluating")):
             inputs = {"input_ids": torch.tensor([example["input_ids"]]).to(self.device)}
             
             # logits 계산
@@ -155,17 +161,33 @@ class UnslothModel(BaseModel):
             scores = [logits[num_tokens[i]].item() for i in range(1, 6)]
             pred_idx = np.argmax(scores)  # 0~4 인덱스
             
-            print(f"Scores: {[f'{i}:{s:.1f}' for i,s in enumerate(scores,1)]} → Predicted: {pred_idx+1}")
-            
             infer_results.append(pred_idx)
             
             # 레이블
             label_val = int(example["answer"]) - 1 if example["answer"] else 0
-            print(f"Answer: {label_val+1}, Predicted: {pred_idx+1}") #디버깅
             labels.append(label_val)
+            
+            # 정답 체크
+            if pred_idx == label_val:
+                correct += 1
         
-        score = f1_score(labels, infer_results, average='macro', zero_division=0)
-        return {"macro_f1": score}
+        # 메트릭 계산
+        accuracy = correct / len(dataset)
+        macro_f1 = f1_score(labels, infer_results, average='macro', zero_division=0)
+        
+        print(f"\n{'='*60}")
+        print(f"📈 평가 결과")
+        print(f"{'='*60}")
+        print(f"  - Accuracy: {accuracy:.4f} ({correct}/{len(dataset)})")
+        print(f"  - Macro F1: {macro_f1:.4f}")
+        print(f"{'='*60}\n")
+        
+        return {
+            "macro_f1": macro_f1,
+            "accuracy": accuracy,
+            "correct": correct,
+            "total": len(dataset)
+        }
 
     def predict(self, dataset: Dataset, **kwargs) -> Dict[str, Any]:
         FastLanguageModel.for_inference(self.model)
