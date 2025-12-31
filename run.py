@@ -3,7 +3,6 @@ import hydra
 import pandas as pd
 import os
 import re
-import logging
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 
@@ -13,12 +12,12 @@ from hydra.core.hydra_config import HydraConfig
 import src.model
 import src.data
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
-from src.utils import set_seed, get_logger, wait_for_gpu_availability
+from src.utils import set_seed, get_logger, setup_logging, wait_for_gpu_availability
 
 # 레지스트리에 모델과 데이터셋을 등록하기 위해 import
 # __init__.py에서 자동으로 baseline_model과 baseline_data를 import함
 
-logger = get_logger(__name__, level=logging.DEBUG)
+logger = get_logger(__name__)
 
 
 # TODO: 시작 - 끝 타이머 추가 / 종료 기록
@@ -26,6 +25,12 @@ logger = get_logger(__name__, level=logging.DEBUG)
 # config_path는 프로젝트 루트 기준으로 설정
 @hydra.main(version_base=None, config_path="config", config_name="test_config")
 def main(cfg: DictConfig):
+    # 로깅 설정 (config에서 읽어옴)
+    setup_logging(
+        level=cfg.get("logging", {}).get("level", "INFO"),
+        use_color=cfg.get("logging", {}).get("use_color", True),
+    )
+
     # 난수 시드 고정
     wait_for_gpu_availability()
     set_seed(cfg.seed)

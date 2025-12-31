@@ -1,8 +1,8 @@
 # 레지스트리에 모델을 등록하기 위해 import
 # 각 모델은 필요한 의존성이 없으면 건너뜀 (torch, transformers 등)
-import logging
+from src.utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 __all__ = []
 

@@ -1,8 +1,8 @@
 import re
-import logging
 from typing import Any, Dict, Optional
 from datasets import Dataset
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 from pydantic import BaseModel, Field
 from typing import Literal
 
@@ -10,11 +10,10 @@ from ollama import generate
 
 from src.model.base_model import BaseModel as BaseModelABC
 from src.utils.registry import MODEL_REGISTRY
+from src.utils import get_logger
 from src.prompt.qwen3_2507_thinking_prompt import Qwen3ThinkingPromptBuilder
 
-# TODO 전역적으로 사용할 로그 고민
-# tqdm 쓰니까 logging이 안남음
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ===========================================
@@ -122,21 +121,30 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
         logger.info(f"Starting prediction with model: {model_name}")
         logger.info(f"Settings - think: {use_think}, temperature: {temperature}, structured: {use_structured}")
 
-        # 데이터셋 순회
-        for row in tqdm(dataset, desc="Predicting"):
-            try:
-                answer = self._predict_single(
-                    row=row,
-                    model_name=model_name,
-                    use_think=use_think,
-                    temperature=temperature,
-                    use_structured=use_structured,
-                )
-                predictions[row["id"]] = answer
+        # 데이터셋 순회 (tqdm과 logging 호환을 위해 logging_redirect_tqdm 사용)
+        total = len(dataset) if hasattr(dataset, "__len__") else None
+        with logging_redirect_tqdm():
+            for row in tqdm(
+                dataset,
+                desc="Predicting",
+                total=total,
+                dynamic_ncols=True,
+                unit="문제",
+                mininterval=0.5,
+            ):
+                try:
+                    answer = self._predict_single(
+                        row=row,
+                        model_name=model_name,
+                        use_think=use_think,
+                        temperature=temperature,
+                        use_structured=use_structured,
+                    )
+                    predictions[row["id"]] = answer
 
-            except Exception as e:
-                logger.warning(f"Error predicting id={row['id']}: {e}")
-                predictions[row["id"]] = 1  # fallback
+                except Exception as e:
+                    logger.warning(f"Error predicting id={row['id']}: {e}")
+                    predictions[row["id"]] = 1  # fallback
 
         return predictions
 
@@ -175,6 +183,8 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
             "temperature": temperature,
         }
 
+        # TODO looger 반드시 설정해서 코드 개선하며 디버깅
+        # TODO reasining 결과 저장하는 옵션
         # Ollama generate() 호출
         if use_structured:
             # Structured Output 사용 - JSON 스키마 강제

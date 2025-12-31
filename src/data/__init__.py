@@ -1,9 +1,8 @@
 # 레지스트리에 데이터셋을 등록하기 위해 import
 # 각 데이터셋은 필요한 의존성이 없으면 건너뜀
-# TODO 전력 로거로 변경
-import logging
+from src.utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Ollama 전용 데이터셋 (torch 불필요)
 try:
