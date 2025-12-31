@@ -3,7 +3,7 @@ import os
 
 # 파일 경로 설정
 data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-train_path = os.path.join(data_dir, 'train.csv')
+train_path = os.path.join(data_dir, 'train_preprocessed.csv')
 trans_path = os.path.join(data_dir, 'self_instruct_output.csv')
 output_path = os.path.join(data_dir, 'train_self.csv')
 
