@@ -4,8 +4,8 @@ import os
 # 파일 경로 설정
 data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 train_path = os.path.join(data_dir, 'train.csv')
-trans_path = os.path.join(data_dir, 'trans2.csv')
-output_path = os.path.join(data_dir, 'train_gong_his.csv')
+trans_path = os.path.join(data_dir, 'self_instruct_output.csv')
+output_path = os.path.join(data_dir, 'train_self.csv')
 
 # CSV 파일 읽기
 print(f"Loading {train_path}...")
