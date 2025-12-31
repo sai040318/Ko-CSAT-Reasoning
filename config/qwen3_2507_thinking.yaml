@@ -3,11 +3,27 @@ mode: inference
 seed: 42
 exp_name: qwen3-2507-thinking
 
+# 로깅 설정
+logging:
+  # 레벨: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: DEBUG
+  # 색상 사용 여부
+  use_color: true
+
 # Hydra 설정
 hydra:
   output_subdir: null
   job:
     chdir: false
+  # Hydra 기본 로깅 비활성화 (get_logger만 사용)
+  job_logging:
+    disable_existing_loggers: false
+    root:
+      handlers: []
+  hydra_logging:
+    disable_existing_loggers: false
+    root:
+      handlers: []
 
 # TODO 이상하면 고칠 것
 # 데이터셋 설정 (Ollama 전용 - 토큰화 없음)
@@ -40,7 +56,7 @@ model:
   type: qwen3-ollama
   model_name_or_path: unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF  # Ollama는 inference.ollama.model 사용
   # 더미 값 (run.py 호환용, Ollama에서는 무시됨)
-  max_seq_length: 512
+  max_seq_length: 32768
 
 # 추론 설정
 inference:
