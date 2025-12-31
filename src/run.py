@@ -1,3 +1,4 @@
+import unsloth 
 import hydra
 import pandas as pd
 import os
@@ -61,30 +62,22 @@ def main(cfg: DictConfig):
             **cfg.dataset.preprocess.train
         )
 
-
         print("🚀 학습 모드 시작")
-        # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
-        split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
-        
+        # train.csv 전체를 학습에 사용 (split 없이)
         model.train(
-            train_dataset=split_dataset["train"],
-            eval_dataset=split_dataset["test"],
+            train_dataset=processed_dataset["train"],
+            eval_dataset=None,  # evaluation은 별도 모드에서 수행
             **cfg.training
         )
         
     elif cfg.mode == "inference":
         print("🚀 추론 모드 시작")
         
-        # 2-1. Model 초기화 (구조만 생성, 가중치는 로드하지 않음)
+        # 2-1. Model 초기화 (skip_init=True로 tokenizer만 로드)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
-            use_peft=cfg.model.use_peft,
-            lora_r=cfg.model.lora_r,
-            lora_alpha=cfg.model.lora_alpha,
-            lora_dropout=cfg.model.lora_dropout,
-            lora_target_modules=cfg.model.lora_target_modules,
+            skip_init=True,  # ⭐ 모델 초기화 스킵, 나중에 load_model()에서 로드
             max_seq_length=cfg.model.max_seq_length,
-            lora_bias=cfg.model.lora_bias,
         )
         tokenizer = model.tokenizer
         
@@ -145,40 +138,51 @@ def main(cfg: DictConfig):
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
         
-        # Model 초기화
+        # Model 초기화 (skip_init=True로 tokenizer만 로드)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
-            use_peft=cfg.model.use_peft,
-            lora_r=cfg.model.lora_r,
-            lora_alpha=cfg.model.lora_alpha,
-            lora_dropout=cfg.model.lora_dropout,
-            lora_target_modules=cfg.model.lora_target_modules,
-            lora_bias=cfg.model.lora_bias,
+            skip_init=True,  # ⭐ 모델 초기화 스킵, 나중에 load_model()에서 로드
             max_seq_length=cfg.model.max_seq_length,
         )
 
         tokenizer = model.tokenizer
 
-        # Dataset 로드 및 전처리
+        # eval.csv 로드 및 전처리
+        eval_dataset_path = cfg.evaluate.get("eval_dataset_path", "data/eval.csv")
+        if not os.path.exists(eval_dataset_path):
+            raise ValueError(f"평가 데이터셋 경로를 찾을 수 없습니다: {eval_dataset_path}")
+        
+        print(f"평가 데이터셋 로드 중: {eval_dataset_path}")
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
-        dataset = dataset_cls(cfg.dataset.path)
-        processed_dataset = dataset.preprocess(
+        eval_dataset = dataset_cls(eval_dataset_path)
+        processed_eval_dataset = eval_dataset.preprocess(
             tokenizer, 
             max_length=cfg.model.max_seq_length, 
             template=cfg.prompt.name, 
             **cfg.dataset.preprocess.inference
         )
 
-        # 2-3. 학습된 모델 로드 (선택사항)
-        model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
-        if os.path.exists(model_load_path):
-            print(f"모델 로드 중: {model_load_path}")
-            model.load_model(model_load_path)
+        # 학습된 모델 로드
+        model_load_path = cfg.evaluate.get("model_load_path", cfg.training.output_dir)
+        if not os.path.exists(model_load_path):
+            raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
         
-        # 2-4. 학습 데이터셋 일부를 사용하여 평가 (임시)
-        split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
-        metrics = model.evaluate(split_dataset["test"])
-        print(f"평가 결과: {metrics}")
+        # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
+        p = Path(model_load_path)
+        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
+        if ckpts:
+            ckpts.sort(
+                key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1))
+            )
+            model_load_path = str(ckpts[-1])
+        
+        print(f"모델 로드 중: {model_load_path}")
+        model.load_model(model_load_path)
+        
+        # eval.csv 전체를 사용하여 평가
+        metrics = model.evaluate(processed_eval_dataset["train"])
+        print(f"평가 결과 : {metrics}")
+
 
 if __name__ == "__main__":
     main()
