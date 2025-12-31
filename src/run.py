@@ -70,7 +70,8 @@ def main(cfg: DictConfig):
         # ⚠️ eval_dataset=None으로 설정하여 evaluation 문제 회피
         model.train(
             train_dataset=split_dataset["train"],
-            eval_dataset=None,  # ← 수정: Packing과 evaluation 충돌 방지
+            #eval_dataset=None,  # ← 수정: Packing과 evaluation 충돌 방지
+            eval_dataset=split_dataset["test"], # 확인필요
             **cfg.training
         )
         
