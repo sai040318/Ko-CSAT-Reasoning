@@ -78,6 +78,7 @@ inference:
 evaluate:
   eval_dataset_path: data/eval.csv
   model_load_path: output/unsloth_qwen2.5_32b
+  eval_output_path: output/qwen2.5_32b_eval_output.csv
 
 # RAG 설정 (미사용)
 rag:
