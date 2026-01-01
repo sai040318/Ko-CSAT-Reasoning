@@ -1,3 +1,5 @@
+import unsloth  
+
 # 레지스트리에 모델을 등록하기 위해 import
 # 각 모델은 필요한 의존성이 없으면 건너뜀 (torch, transformers 등)
 from src.utils import get_logger

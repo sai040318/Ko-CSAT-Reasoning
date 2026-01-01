@@ -147,9 +147,12 @@ class BaselineModel(BaseModel):
         self.model.eval()
         infer_results = []
         labels = []
-
-        # 숫자 1~5에 해당하는 토큰 ID 준비
-        target_token_ids = [self.tokenizer.vocab[str(i)] for i in range(1, 6)]
+        
+        # ✅ 안전한 토큰 ID 추출 방법
+        target_token_ids = [
+            self.tokenizer.encode(str(i), add_special_tokens=False)[0]
+            for i in range(1, 6)
+        ]
 
         for example in dataset:
             inputs = torch.tensor([example["input_ids"]]).to(self.device)
@@ -182,9 +185,13 @@ class BaselineModel(BaseModel):
         """
         self.model.eval()
         predictions = {}
-
-        target_token_ids = [self.tokenizer.vocab[str(i)] for i in range(1, 6)]
-        pred_choices_map = {i: str(i + 1) for i in range(5)}  # 0->'1', 1->'2'...
+        
+        # ✅ 안전한 토큰 ID 추출 방법
+        target_token_ids = [
+            self.tokenizer.encode(str(i), add_special_tokens=False)[0]
+            for i in range(1, 6)
+        ]
+        pred_choices_map = {i: str(i+1) for i in range(5)} # 0->'1', 1->'2'...
 
         for example in dataset:
             inputs = torch.tensor([example["input_ids"]]).to(self.device)
