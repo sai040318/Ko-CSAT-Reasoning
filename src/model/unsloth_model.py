@@ -141,28 +141,23 @@ class UnslothModel(BaseModel):
         labels = []
         ids = []
         
-        # 1~5 토큰 ID 매핑
-        num_tokens = {}
-        for i in range(1, 6):
-            token_text = str(i)
-            token_id = self.tokenizer.encode(token_text, add_special_tokens=False)[0]
-            num_tokens[i] = token_id
+        # ✅ 안전한 토큰 ID 추출 방법 (predict와 동일)
+        target_token_ids = [
+            self.tokenizer.encode(str(i), add_special_tokens=False)[0]
+            for i in range(1, 6)
+        ]
         
-        print(f"✅ 1~5 토큰 ID: {num_tokens}")
         print(f"📊 평가 시작: 총 {len(dataset)}개 샘플")
         
         correct = 0
         for idx, example in enumerate(tqdm(dataset, desc="Evaluating")):
-            inputs = {"input_ids": torch.tensor([example["input_ids"]]).to(self.device)}
+            inputs = torch.tensor([example["input_ids"]]).to(self.device)
             
-            # logits 계산
+            # logits 계산 (predict와 동일)
             with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits[0, -1, :]  # 마지막 토큰 logits
-            
-            # 1~5 중 최고 확률
-            scores = [logits[num_tokens[i]].item() for i in range(1, 6)]
-            pred_idx = np.argmax(scores)  # 0~4 인덱스
+                logits = self.model(inputs).logits
+                scores = logits[:, -1, target_token_ids].cpu().numpy()
+                pred_idx = int(np.argmax(scores))  # 0~4 인덱스
             
             infer_results.append(pred_idx)
             
