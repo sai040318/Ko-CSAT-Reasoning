@@ -1,5 +1,3 @@
-import unsloth  
-
 # 레지스트리에 모델을 등록하기 위해 import
 # 각 모델은 필요한 의존성이 없으면 건너뜀 (torch, transformers 등)
 from src.utils import get_logger
@@ -7,6 +5,13 @@ from src.utils import get_logger
 logger = get_logger(__name__)
 
 __all__ = []
+
+try:
+    import unsloth
+
+except ImportError as e:
+    logger.debug(f"unsloth 라이브러리 로드 실패: {e}")
+
 
 # Ollama 기반 모델 (torch 불필요)
 try:
