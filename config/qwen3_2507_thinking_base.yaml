@@ -56,6 +56,7 @@ inference:
   test_dataset_path: data/test.csv
   output_path: output/qwen3_2507_thinking
 
+  # TODO decoding 변경 시도
   # Ollama 설정
   # https://github.com/ollama/ollama/blob/main/docs/modelfile.mdx#valid-parameters-and-values
   ollama:

@@ -29,6 +29,7 @@ logs/
 # ===== unused docs =====
 COMPETITION_GUIDE.md
 AGENTS.md
+stdout_stderr_example.md
 
 # ===== uv env =====
 **/sota_inference.egg-info/
