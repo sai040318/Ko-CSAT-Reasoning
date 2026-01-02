@@ -150,7 +150,7 @@ def main(cfg: DictConfig):
 
             from datetime import datetime
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%m%d_%H%M%S")
             base_file_name = f"{current_config_name}_{timestamp}_output"
             file_name = f"{base_file_name}.csv"
             final_output_path = output_path / file_name
@@ -162,6 +162,16 @@ def main(cfg: DictConfig):
             logger.info(f"결과를 {final_output_path}에 저장합니다.")
             df_output.to_csv(final_output_path, index=False)
             logger.info(f"결과 저장 완료: {final_output_path}")
+
+            # 추론에 사용한 입력 데이터셋 저장
+            input_data_file_name = f"{base_file_name}_input_data.csv"
+            input_data_path = output_path / input_data_file_name
+
+            # processed_test_dataset에서 DataFrame 생성
+            input_df = pd.DataFrame(processed_test_dataset["train"])
+            input_df.to_csv(input_data_path, index=False)
+            logger.info(f"입력 데이터셋 저장 완료: {input_data_path}")
+
             logger.info(f"모든 추론이 종료되었습니다!")
 
         except Exception as e:
