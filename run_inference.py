@@ -117,37 +117,7 @@ def main(cfg: DictConfig):
             )
             tokenizer = None  # Ollama 모델은 토크나이저 불필요
         else:
-            logger.debug("기존 HuggingFace 모델로 인식됨")
-            # 기존 HuggingFace 모델 초기화
-            model = model_cls(
-                model_name_or_path=cfg.model.model_name_or_path,
-                use_peft=cfg.model.use_peft,
-                lora_r=cfg.model.lora_r,
-                lora_alpha=cfg.model.lora_alpha,
-                lora_dropout=cfg.model.lora_dropout,
-                lora_target_modules=cfg.model.lora_target_modules,
-                max_seq_length=cfg.model.max_seq_length,
-                lora_bias=cfg.model.lora_bias,
-            )
-            tokenizer = model.tokenizer
-
-        # 2-2. 학습된 모델 로드
-        # model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
-        # logger.debug(f"모델 로드 경로: {model_load_path}")
-        # if not os.path.exists(model_load_path):
-        #     raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
-        # # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
-        # p = Path(model_load_path)
-        # ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
-        # if ckpts:
-        #     ckpts.sort(
-        #         key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1))
-        #     )
-        #     model_load_path = str(ckpts[-1])
-
-        # print(f"모델 로드 중: {model_load_path}")
-        # model.load_model(model_load_path)
-
+            raise NotImplementedError("현재는 Ollama 모델만 지원됩니다.")
         # 2-3. test.csv 로드 및 전처리
         test_dataset_path = cfg.inference.get("test_dataset_path", "data/test.csv")
         if not os.path.exists(test_dataset_path):
