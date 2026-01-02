@@ -1,6 +1,8 @@
 import unsloth 
 import torch
 import numpy as np
+import pandas as pd
+import os
 from sklearn.metrics import f1_score
 from typing import Any, Dict, Optional
 from datasets import Dataset
@@ -131,12 +133,13 @@ class UnslothModel(BaseModel):
 
     def evaluate(self, dataset: Dataset, **kwargs) -> Dict[str, float]:
         """
-        평가 데이터셋에 대해 Macro F1 score를 계산합니다.
+        평가 데이터셋에 대해 Macro F1 score를 계산하고 결과 CSV를 생성합니다.
         """
         FastLanguageModel.for_inference(self.model)
         
         infer_results = []
         labels = []
+        ids = []
         
         # 1~5 토큰 ID 매핑
         num_tokens = {}
@@ -167,6 +170,12 @@ class UnslothModel(BaseModel):
             label_val = int(example["answer"]) - 1 if example["answer"] else 0
             labels.append(label_val)
             
+            # ID 저장
+            if "id" in example:
+                ids.append(example["id"])
+            else:
+                ids.append(idx)
+            
             # 정답 체크
             if pred_idx == label_val:
                 correct += 1
@@ -181,6 +190,34 @@ class UnslothModel(BaseModel):
         print(f"  - Accuracy: {accuracy:.4f} ({correct}/{len(dataset)})")
         print(f"  - Macro F1: {macro_f1:.4f}")
         print(f"{'='*60}\n")
+        
+        # ✅ 결과 CSV 저장
+        eval_output_path = kwargs.get("eval_output_path", None)
+        if eval_output_path:
+            # 원본 CSV 로드
+            eval_dataset_path = kwargs.get("eval_dataset_path", None)
+            if eval_dataset_path and os.path.exists(eval_dataset_path):
+                df_original = pd.read_csv(eval_dataset_path)
+                
+                # predict와 correct 컬럼 추가
+                df_original["predict"] = [infer_results[i] + 1 for i in range(len(infer_results))]  # 1~5로 변환
+                df_original["correct"] = ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
+                
+                # 결과 저장
+                os.makedirs(os.path.dirname(eval_output_path), exist_ok=True)
+                df_original.to_csv(eval_output_path, index=False)
+                print(f"✅ 평가 결과 CSV 저장 완료: {eval_output_path}")
+            else:
+                # 원본 CSV가 없을 경우 기본 형식으로 저장
+                df_results = pd.DataFrame({
+                    "id": ids,
+                    "answer": [labels[i] + 1 for i in range(len(labels))],  # 1~5로 변환
+                    "predict": [infer_results[i] + 1 for i in range(len(infer_results))],  # 1~5로 변환
+                    "correct": ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
+                })
+                os.makedirs(os.path.dirname(eval_output_path), exist_ok=True)
+                df_results.to_csv(eval_output_path, index=False)
+                print(f"✅ 평가 결과 CSV 저장 완료: {eval_output_path}")
         
         return {
             "macro_f1": macro_f1,

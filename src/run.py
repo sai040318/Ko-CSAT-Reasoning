@@ -200,7 +200,11 @@ def main(cfg: DictConfig):
         model.load_model(model_load_path)
         
         # eval.csv 전체를 사용하여 평가
-        metrics = model.evaluate(processed_eval_dataset["train"])
+        metrics = model.evaluate(
+            processed_eval_dataset["train"],
+            eval_dataset_path=eval_dataset_path,
+            eval_output_path=cfg.evaluate.get("eval_output_path", "output/eval_results.csv")
+        )
         print(f"평가 결과 : {metrics}")
 
 
