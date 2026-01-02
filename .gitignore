@@ -39,3 +39,4 @@ stdout_stderr_example.md
 
 # ===== Ollama model files =====
 **/ollama-python/
+.vscode/settings.json

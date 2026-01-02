@@ -180,7 +180,7 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
             elif msg["role"] == "user":
                 prompt_msg = msg["content"]
 
-        if counter % 2 == 0:
+        if counter % 10 == 0:
             logger.debug(f"[{row['id']}] System: {system_msg}")
             logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:1000]}...")
 

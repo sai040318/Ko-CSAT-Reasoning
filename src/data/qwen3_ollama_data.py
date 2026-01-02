@@ -12,6 +12,7 @@ from datasets import Dataset, DatasetDict
 
 from src.data.base_data import BaseDataset
 from src.utils.registry import DATASET_REGISTRY
+from src.utils import get_logger
 
 
 # TODO
@@ -38,6 +39,8 @@ from src.utils.registry import DATASET_REGISTRY
   ---
   추천: Option A (가장 깔끔)
 """
+
+logger = get_logger(__name__)
 
 
 @DATASET_REGISTRY.register("ollama")
@@ -71,12 +74,22 @@ class Qwen3OllamaDataset(BaseDataset):
             if record["question_plus"] is None:
                 record["question_plus"] = problems.get("question_plus", None)
 
+            if record["choices"] is None:
+                logger.error(f"Missing choices for id: {row['id']}")
+
+            if record["question"] is None:
+                logger.error(f"Missing question for id: {row['id']}")
+
+            if record["answer"] is None:
+                logger.error(f"Missing answer for id: {row['id']}")
+
             records.append(record)
 
         flattened_df = pd.DataFrame(records)
         dataset = Dataset.from_pandas(flattened_df)
 
         self.dataset = DatasetDict({"train": dataset})
+        logger.info(f"데이터셋 로드 완료: {self.data_path}, 총 샘플 수: {len(self.dataset['train'])}")
         return self.dataset
 
     # TODO template 인자 쓸 것
@@ -103,10 +116,6 @@ class Qwen3OllamaDataset(BaseDataset):
         # Ollama 모델은 토큰화 없이 raw 데이터 그대로 사용
         # 템플릿 이름만 메타데이터로 저장
         processed_dataset = self.dataset
-
-        # 템플릿 정보를 info에 저장 (선택적)
-        if hasattr(processed_dataset, "info"):
-            processed_dataset.info.description = f"Template: {template}"
 
         return processed_dataset
 
