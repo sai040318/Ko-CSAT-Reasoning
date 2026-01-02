@@ -1,14 +1,15 @@
 import pytest
 from pathlib import Path
-from src.prompt.qwen3_2507_thinking_prompt import Qwen3ThinkingPromptBuilder
+from src.prompt.ollama_prompt import OllamaPromptBuilder
 
 
 # ==================== Fixtures ====================
 
+
 @pytest.fixture
 def builder():
     """기본 빌더 인스턴스"""
-    return Qwen3ThinkingPromptBuilder()
+    return OllamaPromptBuilder()
 
 
 @pytest.fixture
@@ -47,6 +48,7 @@ def sample_batch_data():
 
 # ==================== 기본 기능 테스트 ====================
 
+
 class TestBuildSingleBasic:
     """build_single 기본 기능 테스트"""
 
@@ -84,6 +86,7 @@ class TestBuildSingleBasic:
 
 # ==================== 파라미터화 테스트 ====================
 
+
 class TestParameterized:
     """다양한 입력값에 대한 파라미터화 테스트"""
 
@@ -108,11 +111,14 @@ class TestParameterized:
         for i, choice in enumerate(choices, 1):
             assert f"{i} - {choice}" in user_content
 
-    @pytest.mark.parametrize("question_plus,expected_in_content", [
-        ("ㄱ. 보기1", True),
-        ("", False),
-        (None, False),
-    ])
+    @pytest.mark.parametrize(
+        "question_plus,expected_in_content",
+        [
+            ("ㄱ. 보기1", True),
+            ("", False),
+            (None, False),
+        ],
+    )
     def test_question_plus_variations(self, builder, question_plus, expected_in_content):
         """question_plus 다양한 값 테스트"""
         messages = builder.build_single(
@@ -128,14 +134,17 @@ class TestParameterized:
         else:
             assert "<보 기>" not in user_content
 
-    @pytest.mark.parametrize("paragraph", [
-        "짧은 지문",
-        "중간 길이의 지문입니다. 여러 문장이 포함될 수 있습니다.",
-        "매우 긴 지문입니다. " * 50,
-        "특수문자 포함: !@#$%^&*()",
-        "줄바꿈\n포함\n지문",
-        "한글English混合지문",
-    ])
+    @pytest.mark.parametrize(
+        "paragraph",
+        [
+            "짧은 지문",
+            "중간 길이의 지문입니다. 여러 문장이 포함될 수 있습니다.",
+            "매우 긴 지문입니다. " * 50,
+            "특수문자 포함: !@#$%^&*()",
+            "줄바꿈\n포함\n지문",
+            "한글English混合지문",
+        ],
+    )
     def test_various_paragraph_formats(self, builder, paragraph):
         """다양한 지문 형식 테스트"""
         messages = builder.build_single(
@@ -148,6 +157,7 @@ class TestParameterized:
 
 
 # ==================== 배치 처리 테스트 ====================
+
 
 class TestBuildBatch:
     """build_batch 기능 테스트"""
@@ -211,6 +221,7 @@ class TestBuildBatch:
 
 # ==================== 포맷팅 테스트 ====================
 
+
 class TestFormatting:
     """포맷팅 관련 테스트"""
 
@@ -268,6 +279,7 @@ class TestFormatting:
 
 
 # ==================== 엣지 케이스 테스트 ====================
+
 
 class TestEdgeCases:
     """엣지 케이스 테스트"""
@@ -345,6 +357,7 @@ class TestEdgeCases:
 
 # ==================== 템플릿 관련 테스트 ====================
 
+
 class TestTemplate:
     """템플릿 로딩 및 캐싱 테스트"""
 
@@ -373,26 +386,27 @@ class TestTemplate:
 
     def test_invalid_template_name(self):
         """존재하지 않는 템플릿 이름 에러"""
-        builder = Qwen3ThinkingPromptBuilder(template_name="nonexistent_template")
+        builder = OllamaPromptBuilder(template_name="nonexistent_template")
 
         with pytest.raises(ValueError, match="Template not found"):
             _ = builder.template
 
     def test_custom_template_name(self):
         """커스텀 템플릿 이름 설정"""
-        builder = Qwen3ThinkingPromptBuilder(template_name="qwen3_2507_thinking")
+        builder = OllamaPromptBuilder(template_name="qwen3_2507_thinking")
 
         assert builder.template_name == "qwen3_2507_thinking"
 
 
 # ==================== 하위 호환성 테스트 ====================
 
+
 class TestLegacyFunctions:
     """하위 호환성 함수 테스트"""
 
     def test_load_template_function(self):
         """load_template 함수 동작 확인"""
-        from src.prompt.qwen3_2507_thinking_prompt import load_template
+        from src.prompt.ollama_prompt import load_template
 
         template = load_template("qwen3_2507_thinking")
 
@@ -401,7 +415,7 @@ class TestLegacyFunctions:
 
     def test_parse_chat_template_function(self):
         """parse_chat_template 함수 동작 확인"""
-        from src.prompt.qwen3_2507_thinking_prompt import parse_chat_template
+        from src.prompt.ollama_prompt import parse_chat_template
 
         text = "<SYSTEM>시스템 메시지</SYSTEM><USER>유저 메시지</USER>"
         messages = parse_chat_template(text)
@@ -412,7 +426,7 @@ class TestLegacyFunctions:
 
     def test_build_chat_messages_function(self):
         """build_chat_messages 함수 동작 확인"""
-        from src.prompt.qwen3_2507_thinking_prompt import build_chat_messages
+        from src.prompt.ollama_prompt import build_chat_messages
 
         examples = {
             "paragraph": ["지문"],
@@ -432,6 +446,7 @@ class TestLegacyFunctions:
 
 
 # ==================== 통합 테스트 ====================
+
 
 class TestIntegration:
     """통합 테스트"""
@@ -486,6 +501,7 @@ class TestIntegration:
 
 
 # ==================== 성능 테스트 (선택적) ====================
+
 
 @pytest.mark.slow
 class TestPerformance:

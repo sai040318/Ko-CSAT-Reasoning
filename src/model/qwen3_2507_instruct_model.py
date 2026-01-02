@@ -11,7 +11,7 @@ from ollama import generate
 from src.model.base_model import BaseModel as BaseModelABC
 from src.utils.registry import MODEL_REGISTRY
 from src.utils import get_logger
-from src.prompt.qwen3_2507_thinking_prompt import Qwen3ThinkingPromptBuilder
+from src.prompt.ollama_prompt import OllamaPromptBuilder
 
 logger = get_logger(__name__)
 
@@ -67,7 +67,7 @@ class Qwen3_2507InstructModel(BaseModelABC):
         # TODO TEMPLATE Instruction 이용한 방법 공부할 것
         # 프롬프트 빌더 초기화
         logger.info("Initializing Qwen3ThinkingPromptBuilder...")
-        self.prompt_builder = Qwen3ThinkingPromptBuilder()
+        self.prompt_builder = OllamaPromptBuilder()
 
         logger.info(f"Qwen3_2507InstructModel initialized with model: {self.model_name}")
 
@@ -115,7 +115,7 @@ class Qwen3_2507InstructModel(BaseModelABC):
 
         # 프롬프트 빌더 설정
         if template_name != self.prompt_builder.template_name:
-            self.prompt_builder = Qwen3ThinkingPromptBuilder(template_name=template_name)
+            self.prompt_builder = OllamaPromptBuilder(template_name=template_name)
 
         logger.info(f"Starting prediction with model: {model_name}")
         logger.info(f"Settings, temperature: {temperature}, structured: {use_structured}")

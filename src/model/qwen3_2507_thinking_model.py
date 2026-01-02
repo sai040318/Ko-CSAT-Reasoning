@@ -11,7 +11,7 @@ from ollama import generate
 from src.model.base_model import BaseModel as BaseModelABC
 from src.utils.registry import MODEL_REGISTRY
 from src.utils import get_logger
-from src.prompt.qwen3_2507_thinking_prompt import Qwen3ThinkingPromptBuilder
+from src.prompt.ollama_prompt import OllamaPromptBuilder
 
 logger = get_logger(__name__)
 
@@ -67,7 +67,7 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
         # TODO TEMPLATE Instruction 이용한 방법 공부할 것
         # 프롬프트 빌더 초기화
         logger.info("Initializing Qwen3ThinkingPromptBuilder...")
-        self.prompt_builder = Qwen3ThinkingPromptBuilder()
+        self.prompt_builder = OllamaPromptBuilder()
 
         logger.info(f"Qwen3_2507_ThinkingModel initialized with model: {self.model_name}")
 
@@ -116,13 +116,15 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
 
         # 프롬프트 빌더 설정
         if template_name != self.prompt_builder.template_name:
-            self.prompt_builder = Qwen3ThinkingPromptBuilder(template_name=template_name)
+            self.prompt_builder = OllamaPromptBuilder(template_name=template_name)
 
         logger.info(f"Starting prediction with model: {model_name}")
         logger.info(f"Settings - think: {use_think}, temperature: {temperature}, structured: {use_structured}")
 
         # 데이터셋 순회 (tqdm과 logging 호환을 위해 logging_redirect_tqdm 사용)
         total = len(dataset) if hasattr(dataset, "__len__") else None
+        global _counter
+        _counter = 1
         with logging_redirect_tqdm():
             for row in tqdm(
                 dataset,
@@ -133,6 +135,7 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
                 mininterval=0.5,
             ):
                 try:
+                    _counter += 1
                     answer = self._predict_single(
                         row=row,
                         model_name=model_name,
@@ -175,8 +178,9 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
             elif msg["role"] == "user":
                 prompt_msg = msg["content"]
 
-        logger.debug(f"[{row['id']}] System: {system_msg[:100]}...")
-        logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:100]}...")
+        if _counter % 20 == 0:
+            logger.debug(f"[{row['id']}] System: {system_msg}")
+            logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:1000]}...")
 
         # Ollama 옵션
         options = {

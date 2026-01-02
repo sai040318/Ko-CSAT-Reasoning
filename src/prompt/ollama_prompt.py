@@ -3,12 +3,12 @@ import re
 from typing import Optional
 
 
-class Qwen3ThinkingPromptBuilder:
+class OllamaPromptBuilder:
     """
     Qwen3-2507 Thinking 모델용 프롬프트 빌더 클래스.
 
     사용 예시:
-        builder = Qwen3ThinkingPromptBuilder()
+        builder = OllamaPromptBuilder()
         messages = builder.build_single(
             paragraph="고종은 대한제국을 선포하였다.",
             question="다음 중 옳은 것은?",
@@ -144,22 +144,22 @@ class Qwen3ThinkingPromptBuilder:
 
 # 하위 호환성을 위한 함수 래퍼
 def load_template(name: str) -> str:
-    builder = Qwen3ThinkingPromptBuilder(template_name=name)
+    builder = OllamaPromptBuilder(template_name=name)
     return builder._load_template(name)
 
 
 def parse_chat_template(text: str) -> list[dict]:
-    return Qwen3ThinkingPromptBuilder._parse_chat_template(text)
+    return OllamaPromptBuilder._parse_chat_template(text)
 
 
 def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict]]:
-    builder = Qwen3ThinkingPromptBuilder(template_name=template_name)
+    builder = OllamaPromptBuilder(template_name=template_name)
     return builder.build_batch(examples)
 
 
 if __name__ == "__main__":
     # 단일 문제 테스트
-    builder = Qwen3ThinkingPromptBuilder()
+    builder = OllamaPromptBuilder()
 
     single_msg = builder.build_single(
         paragraph="고종은 대한제국을 선포하였다.",
