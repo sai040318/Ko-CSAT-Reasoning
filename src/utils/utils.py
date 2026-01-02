@@ -31,7 +31,8 @@ def set_seed(seed: int):
 
     torch = _get_torch()
     if torch is None:
-        logger.info(f"✅ 난수 시드가 {seed}로 고정되었습니다. (python/numpy only)")
+        logger.info(f"torch 라이브러리가 없어 python/numpy만 시드 고정합니다.")
+        logger.info(f"난수 시드가 {seed}로 고정되었습니다. (python/numpy only)")
         return
 
     # torch seed 고정

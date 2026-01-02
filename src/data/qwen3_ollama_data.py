@@ -18,10 +18,6 @@ from src.utils.registry import DATASET_REGISTRY
 """
   문제 분석
 
-  run.py가 cfg.model.max_seq_length 같은 HuggingFace 전용 설정을 직접 참조하고 있어서, Ollama 모델처럼 해당 설정이 없는 경우 오류 발생.
-
-  해결 전략 3가지
-
   Option A: Config에 더미 값 추가 (run.py 수정 0)
 
   - qwen3_2507_thinking.yaml에 max_seq_length: 512 등 더미 값 추가
@@ -44,7 +40,7 @@ from src.utils.registry import DATASET_REGISTRY
 """
 
 
-@DATASET_REGISTRY.register("qwen3-ollama")
+@DATASET_REGISTRY.register("ollama")
 class Qwen3OllamaDataset(BaseDataset):
     """
     Qwen3 Ollama 모델 전용 데이터셋.
@@ -83,10 +79,9 @@ class Qwen3OllamaDataset(BaseDataset):
         self.dataset = DatasetDict({"train": dataset})
         return self.dataset
 
+    # TODO template 인자 쓸 것
     def preprocess(
         self,
-        tokenizer: Any = None,  # Ollama는 토크나이저 불필요
-        max_length: int = 512,
         template: str = "qwen3_2507_thinking",
         **kwargs,
     ) -> DatasetDict:
@@ -116,7 +111,8 @@ class Qwen3OllamaDataset(BaseDataset):
         return processed_dataset
 
 
-@DATASET_REGISTRY.register("qwen3-ollama-eval")
+# TODO 미구현
+@DATASET_REGISTRY.register("ollama-eval")
 class Qwen3OllamaEvalDataset(Qwen3OllamaDataset):
     """
     Qwen3 Ollama 평가용 데이터셋.
@@ -125,10 +121,11 @@ class Qwen3OllamaEvalDataset(Qwen3OllamaDataset):
     answer 컬럼이 있는 데이터에 대해 예측 후 평가 가능.
     """
 
+    def __init__(self, data_path: str):
+        raise NotImplementedError("Qwen3OllamaEvalDataset은 아직 구현되지 않았습니다.")
+
     def preprocess(
         self,
-        tokenizer: Any = None,
-        max_length: int = 512,
         template: str = "qwen3_2507_thinking",
         split_ratio: float = 0.1,
         seed: int = 42,

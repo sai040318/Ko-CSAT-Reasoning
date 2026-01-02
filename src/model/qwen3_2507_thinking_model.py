@@ -2,7 +2,6 @@ import re
 from typing import Any, Dict, Optional
 from datasets import Dataset
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 from pydantic import BaseModel, Field
 from typing import Literal
 
@@ -123,31 +122,33 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
 
         # 데이터셋 순회 (tqdm과 logging 호환을 위해 logging_redirect_tqdm 사용)
         total = len(dataset) if hasattr(dataset, "__len__") else None
-        global _counter
-        _counter = 1
-        with logging_redirect_tqdm():
-            for row in tqdm(
+
+        # with logging_redirect_tqdm():
+        for idx, row in enumerate(
+            tqdm(
                 dataset,
                 desc="Predicting",
                 total=total,
                 dynamic_ncols=True,
                 unit="문제",
                 mininterval=0.5,
-            ):
-                try:
-                    _counter += 1
-                    answer = self._predict_single(
-                        row=row,
-                        model_name=model_name,
-                        use_think=use_think,
-                        temperature=temperature,
-                        use_structured=use_structured,
-                    )
-                    predictions[row["id"]] = answer
+            ),
+            start=1,
+        ):
+            try:
+                answer = self._predict_single(
+                    row=row,
+                    model_name=model_name,
+                    use_think=use_think,
+                    temperature=temperature,
+                    use_structured=use_structured,
+                    counter=idx,
+                )
+                predictions[row["id"]] = answer
 
-                except Exception as e:
-                    logger.warning(f"Error predicting id={row['id']}: {e}")
-                    predictions[row["id"]] = 1  # fallback
+            except Exception as e:
+                logger.warning(f"Error predicting id={row['id']}: {e}")
+                raise e
 
         return predictions
 
@@ -158,6 +159,7 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
         use_think: bool,
         temperature: float,
         use_structured: bool,
+        counter: int,
     ) -> int:
         """단일 문제에 대한 예측 수행"""
 
@@ -178,7 +180,7 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
             elif msg["role"] == "user":
                 prompt_msg = msg["content"]
 
-        if _counter % 20 == 0:
+        if counter % 2 == 0:
             logger.debug(f"[{row['id']}] System: {system_msg}")
             logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:1000]}...")
 
