@@ -12,7 +12,14 @@ from hydra.core.hydra_config import HydraConfig
 import src.model
 import src.data
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
-from src.utils import set_seed, get_logger, setup_logging, wait_for_gpu_availability
+from src.utils import (
+    set_seed,
+    get_logger,
+    setup_logging,
+    wait_for_gpu_availability,
+    ExperimentLogger,
+    tune_third_party_log_levels,
+)
 
 # 레지스트리에 모델과 데이터셋을 등록하기 위해 import
 # __init__.py에서 자동으로 baseline_model과 baseline_data를 import함
@@ -30,6 +37,9 @@ def main(cfg: DictConfig):
         level=cfg.get("logging", {}).get("level", "INFO"),
         use_color=cfg.get("logging", {}).get("use_color", True),
     )
+    if cfg.get("logging", {}).get("tune_third_party", False):
+        tune_third_party_log_levels()
+    exp_logger = ExperimentLogger(exp_name=cfg.get("exp_name"))
 
     # 난수 시드 고정
     wait_for_gpu_availability()
