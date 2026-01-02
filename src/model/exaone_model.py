@@ -44,9 +44,7 @@ class ExaoneModel(BaseModel):
             device_map="auto",
         )
 
-        # TODO: tokenizer 전략 설정, 어차피 배치 안쓸거면 dynamic padding 혹은 length based padding도 고려
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, padding_side="left")
-        # TODO: padding eos_token 실험 진행
         # self.tokenizer.padding_side = "left"
         # self.tokenizer.pad_token = self.tokenizer.eos_token
 
@@ -179,7 +177,6 @@ class ExaoneModel(BaseModel):
         # return {"macro_f1": score}
         pass
 
-    # TODO: model() vs model.generate()? 성능은 뭐가 나을까?
     # instruction model or SFT 적용했다면 generate도 괜찮을듯
     # tokenizer를 inference와 train할 때 각각 다르게 써야하나?
     def predict(self, dataset: Dataset, **kwargs) -> Dict[str, Any]:
@@ -190,7 +187,6 @@ class ExaoneModel(BaseModel):
         predictions = {}
 
         # 1~5까지 token ID 준비
-        # TODO: encode, decode 사용하면 조금 더 안전함
         target_token_ids = [self.tokenizer.vocab[str(i)] for i in range(1, 6)]
         pred_choices_map = {i: str(i + 1) for i in range(5)}  # 0->'1', 1->'2'...
 
