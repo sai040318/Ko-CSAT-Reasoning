@@ -58,6 +58,8 @@ ollama:
   temperature: 0.6
   top_p: 0.95
   top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0 # 0.0 ~ 2.0
 
 # 프롬프트 템플릿 설정
 prompt:
@@ -70,14 +72,14 @@ prompt:
 
 # 모델 설정 (Ollama)
 model:
-  type: qwen3-ollama
+  type: qwen3-ollama-thinking
   # Ollama는 inference.ollama.model 사용
   model_name_or_path: unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF
 
 # 추론 설정
 inference:
   test_dataset_path: data/test.csv
-  output_path: output/qwen3_2507_thinking
+  output_path: outputs
 
   # Ollama 설정
   # https://github.com/ollama/ollama/blob/main/docs/modelfile.mdx#valid-parameters-and-values
