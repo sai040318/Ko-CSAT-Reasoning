@@ -21,6 +21,13 @@ try:
 except ImportError as e:
     logger.debug(f"Qwen3_2507_ThinkingModel 로드 실패 (의존성 누락): {e}")
 
+try:
+    from .qwen3_2507_instruct_model import Qwen3_2507InstructModel
+
+    __all__.append("Qwen3_2507InstructModel")
+except ImportError as e:
+    logger.debug(f"Qwen3_2507_InstructModel 로드 실패 (의존성 누락): {e}")
+
 # HuggingFace/PyTorch 기반 모델 (torch 필요)
 try:
     from .baseline_model import BaselineModel
@@ -35,13 +42,6 @@ try:
     __all__.append("UnslothModel")
 except ImportError as e:
     logger.debug(f"UnslothModel 로드 실패 (의존성 누락): {e}")
-
-try:
-    from .qwen3_model import Qwen3Model
-
-    __all__.append("Qwen3Model")
-except ImportError as e:
-    logger.debug(f"Qwen3Model 로드 실패 (의존성 누락): {e}")
 
 try:
     from .exaone_model import ExaoneModel

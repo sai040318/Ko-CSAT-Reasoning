@@ -1,4 +1,5 @@
 import re
+import sys
 from typing import Any, Dict, Optional
 from datasets import Dataset
 from tqdm import tqdm
@@ -34,7 +35,7 @@ class AnswerWithReasoning(BaseModel):
 # ===========================================
 # Qwen3-2507 Thinking Model (Ollama 기반)
 # ===========================================
-@MODEL_REGISTRY.register("qwen3-ollama")
+@MODEL_REGISTRY.register("qwen3-ollama-thinking")
 class Qwen3_2507ThinkingModel(BaseModelABC):
     """
     Ollama를 통해 Qwen3-2507 모델을 사용하는 추론 전용 모델.
@@ -131,7 +132,8 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
                 total=total,
                 dynamic_ncols=True,
                 unit="문제",
-                mininterval=0.5,
+                mininterval=10.0,
+                disable=not sys.stdout.isatty(),
             ),
             start=1,
         ):

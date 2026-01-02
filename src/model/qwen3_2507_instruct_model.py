@@ -1,8 +1,8 @@
 import re
+import sys
 from typing import Any, Dict, Optional
 from datasets import Dataset
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 from pydantic import BaseModel, Field
 from typing import Literal
 
@@ -35,7 +35,7 @@ class AnswerWithReasoning(BaseModel):
 # ===========================================
 # Qwen3-2507 Thinking Model (Ollama 기반)
 # ===========================================
-@MODEL_REGISTRY.register("qwen3-ollama")
+@MODEL_REGISTRY.register("qwen3-ollama-instruct")
 class Qwen3_2507InstructModel(BaseModelABC):
     """
     Ollama를 통해 Qwen3-2507 모델을 사용하는 추론 전용 모델.
@@ -53,7 +53,7 @@ class Qwen3_2507InstructModel(BaseModelABC):
             model_name_or_path: Ollama 모델 이름 (예: "qwen3:30b-a3b")
         """
 
-        logger.info("Qwen3_2507InstructModel 초기화 중..")
+        logger.info("Qwen3_2507_InstructModel 초기화 중..")
         logger.debug(f"model_name_or_path: {model_name_or_path}")
         logger.debug(f"kwargs: {kwargs}")
         # BaseModel ABC는 model_name_or_path만 저장
@@ -69,7 +69,7 @@ class Qwen3_2507InstructModel(BaseModelABC):
         logger.info("Initializing Qwen3ThinkingPromptBuilder...")
         self.prompt_builder = OllamaPromptBuilder()
 
-        logger.info(f"Qwen3_2507InstructModel initialized with model: {self.model_name}")
+        logger.info(f"Qwen3_2507_InstructModel initialized with model: {self.model_name}")
 
     # TODO ADAPTER 가능
     def train(self, train_dataset: Dataset, eval_dataset: Optional[Dataset] = None, **kwargs):
@@ -96,7 +96,7 @@ class Qwen3_2507InstructModel(BaseModelABC):
         Returns:
             Dict[str, Any]: {id: answer} 형태의 예측 결과
         """
-        logger.info("Qwen3_2507InstructModel: 시작 추론...")
+        logger.info("Qwen3_2507_InstructModel: 시작 추론...")
         predictions = {}
 
         # 설정 로드
@@ -118,31 +118,37 @@ class Qwen3_2507InstructModel(BaseModelABC):
             self.prompt_builder = OllamaPromptBuilder(template_name=template_name)
 
         logger.info(f"Starting prediction with model: {model_name}")
-        logger.info(f"Settings, temperature: {temperature}, structured: {use_structured}")
+        logger.info(f"Settings - temperature: {temperature}, structured: {use_structured}")
 
         # 데이터셋 순회 (tqdm과 logging 호환을 위해 logging_redirect_tqdm 사용)
         total = len(dataset) if hasattr(dataset, "__len__") else None
-        with logging_redirect_tqdm():
-            for row in tqdm(
+
+        # with logging_redirect_tqdm():
+        for idx, row in enumerate(
+            tqdm(
                 dataset,
                 desc="Predicting",
                 total=total,
                 dynamic_ncols=True,
                 unit="문제",
-                mininterval=0.5,
-            ):
-                try:
-                    answer = self._predict_single(
-                        row=row,
-                        model_name=model_name,
-                        temperature=temperature,
-                        use_structured=use_structured,
-                    )
-                    predictions[row["id"]] = answer
+                mininterval=10.0,
+                disable=not sys.stdout.isatty(),
+            ),
+            start=1,
+        ):
+            try:
+                answer = self._predict_single(
+                    row=row,
+                    model_name=model_name,
+                    temperature=temperature,
+                    use_structured=use_structured,
+                    counter=idx,
+                )
+                predictions[row["id"]] = answer
 
-                except Exception as e:
-                    logger.warning(f"Error predicting id={row['id']}: {e}")
-                    predictions[row["id"]] = 1  # fallback
+            except Exception as e:
+                logger.warning(f"Error predicting id={row['id']}: {e}")
+                raise e
 
         return predictions
 
@@ -150,9 +156,9 @@ class Qwen3_2507InstructModel(BaseModelABC):
         self,
         row: Dict[str, Any],
         model_name: str,
-        use_think: bool,
         temperature: float,
         use_structured: bool,
+        counter: int,
     ) -> int:
         """단일 문제에 대한 예측 수행"""
 
@@ -173,8 +179,9 @@ class Qwen3_2507InstructModel(BaseModelABC):
             elif msg["role"] == "user":
                 prompt_msg = msg["content"]
 
-        logger.debug(f"[{row['id']}] System: {system_msg[:100]}...")
-        logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:100]}...")
+        if counter % 10 == 0:
+            logger.debug(f"[{row['id']}] System: {system_msg}")
+            logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:1000]}...")
 
         # Ollama 옵션
         options = {
@@ -191,7 +198,6 @@ class Qwen3_2507InstructModel(BaseModelABC):
                 prompt=prompt_msg,
                 system=system_msg,
                 format=AnswerResponse.model_json_schema(),
-                think=use_think,
                 stream=False,
                 options=options,
             )
@@ -206,17 +212,12 @@ class Qwen3_2507InstructModel(BaseModelABC):
                 model=model_name,
                 prompt=prompt_msg,
                 system=system_msg,
-                think=use_think,
                 stream=False,
                 options=options,
             )
 
             # 텍스트에서 숫자 추출
             answer = self._parse_answer_from_text(response.response)
-
-        # 디버그 로깅 (thinking 내용)
-        if use_think and hasattr(response, "thinking") and response.thinking:
-            logger.debug(f"[{row['id']}] Thinking: {response.thinking[:200]}...")
 
         return answer
 
@@ -243,10 +244,10 @@ class Qwen3_2507InstructModel(BaseModelABC):
 
     def save_model(self, save_path: str):
         """Ollama 모델은 저장 불필요"""
-        logger.error("Qwen3_2507InstructModel: save_model is not applicable for Ollama models")
+        logger.error("Qwen3_2507_InstructModel: save_model is not applicable for Ollama models")
         raise NotImplementedError("Ollama 모델은 저장 기능을 지원하지 않습니다.")
 
     def load_model(self, load_path: str):
         """Ollama 모델은 로드 불필요 (Ollama 서버에서 관리)"""
-        logger.error("Qwen3_2507InstructModel: load_model is not applicable for Ollama models")
+        logger.error("Qwen3_2507_InstructModel: load_model is not applicable for Ollama models")
         raise NotImplementedError("Ollama 모델은 로드 기능을 지원하지 않습니다.")
