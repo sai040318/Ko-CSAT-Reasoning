@@ -48,6 +48,7 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
         qp_raw = q_plus_list[i]
         qp = f"<보 기>\n{qp_raw}" if qp_raw else ""
         c = examples["choices"][i]
+        d = examples["documents"][i] or ""
         a = examples["answer"][i]
 
 
@@ -57,13 +58,16 @@ def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict
             paragraph=p,
             question_plus=qp,
             question=q,
-            choices=choices_str
+            choices=choices_str,
+            documents=d
         )
 
         messages = parse_chat_template(filled)
 
         if a not in [None, ""]:
             messages.append({"role": "assistant", "content": str(a)})
+        
+        print(messages)
 
         chat_messages.append(messages)
 
@@ -76,6 +80,7 @@ if __name__ == "__main__":
         "question_plus": [None],
         "question": ["다음 중 옳은 것은?"],
         "choices": [["조선", "대한제국", "고려"]],
+        "documents": [None],
         "answer": [2],
     }
 

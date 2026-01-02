@@ -20,6 +20,8 @@ from src.utils.utils import set_seed
 import src.model  # noqa: F401
 import src.data  # noqa: F401 
 
+from src.rag.rag_pipeline import RAGPipeline, HistoryClassifier
+
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
 @hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
@@ -105,6 +107,15 @@ def main(cfg: DictConfig):
         print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
         test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         test_dataset = test_dataset_cls(test_dataset_path)
+
+        ### RAG부분 ###
+        history_classifier = HistoryClassifier(model.model, tokenizer)
+        rag_pipeline = RAGPipeline(corpus_path="./corpus")
+
+        test_dataset.extra_columns["mode"] = cfg.mode
+        test_dataset.extra_columns["history_classifier"] = history_classifier
+        test_dataset.extra_columns["rag_pipeline"] = rag_pipeline
+
         processed_test_dataset = test_dataset.preprocess(
             tokenizer, 
             max_length=cfg.model.max_seq_length, 
@@ -155,6 +166,15 @@ def main(cfg: DictConfig):
         print(f"평가 데이터셋 로드 중: {eval_dataset_path}")
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         eval_dataset = dataset_cls(eval_dataset_path)
+
+        ### RAG부분 ###
+        history_classifier = HistoryClassifier(model.model, tokenizer)
+        rag_pipeline = RAGPipeline(corpus_path="./corpus")
+
+        eval_dataset.extra_columns["mode"] = cfg.mode
+        eval_dataset.extra_columns["history_classifier"] = history_classifier
+        eval_dataset.extra_columns["rag_pipeline"] = rag_pipeline
+
         processed_eval_dataset = eval_dataset.preprocess(
             tokenizer, 
             max_length=cfg.model.max_seq_length, 

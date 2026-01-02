@@ -12,12 +12,20 @@ class BaselineDataset(BaseDataset):
     대회에서 제공된 베이스라인 데이터 로더.
     CSV 파일을 읽어 'problems' 컬럼을 파싱하고 평탄화합니다.
     """
+    def __init__(self, data_path: str):
+        super().__init__(data_path)
+        self.extra_columns = {}
 
-    # ==========================================================
-    # 데이터 로드 (원본 그대로)
-    # ==========================================================
     def load_data(self) -> DatasetDict:
         df = pd.read_csv(self.data_path)
+
+        ## RAG
+        mode = self.extra_columns.get("mode", "train")
+        history_classifier = self.extra_columns.get("history_classifier")
+        rag_pipeline = self.extra_columns.get("rag_pipeline")
+
+        if mode in ["evaluate", "inference"] and history_classifier and rag_pipeline:
+            df = rag_pipeline.add_documents_to_df(df, history_classifier)
 
         records = []
         for _, row in df.iterrows():
@@ -30,6 +38,7 @@ class BaselineDataset(BaseDataset):
                 "choices": problems["choices"],
                 "answer": problems.get("answer", None),
                 "question_plus": problems.get("question_plus", None),
+                "documents": row["documents"],
             }
             records.append(record)
 
