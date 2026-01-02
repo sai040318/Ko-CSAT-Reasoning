@@ -13,6 +13,7 @@ hydra:
 dataset:
   type: baseline
   path: data/train.csv
+  split_ratio: 0.8  
   
   # 전처리 옵션
   preprocess:
@@ -76,9 +77,8 @@ inference:
 
 # 평가 설정
 evaluate:
-  eval_dataset_path: data/eval.csv
   model_load_path: output/unsloth_qwen2.5_32b
-  eval_output_path: output/qwen2.5_32b_eval_output.csv
+  eval_output_path: output/qwen2.5_shuffle_self_eval_results.csv
 
 # RAG 설정 (미사용)
 rag:
