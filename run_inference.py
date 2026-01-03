@@ -59,50 +59,7 @@ def main(cfg: DictConfig):
     # 모델에 맞는 토크나이저(Chat Template 포함)를 가져오기 위해 모델 클래스를 먼저 로드합니다.
     model_cls = MODEL_REGISTRY.get(cfg.model.type)
 
-    # 실행 모드에 따른 동작 수행
-    if cfg.mode == "train":
-        logger.info("학습 모드 시작")
-        logger.info(f"모델 인스턴스화: {model_cls.__name__}")
-        # Model 초기화
-        model = model_cls(
-            model_name_or_path=cfg.model.model_name_or_path,
-            use_peft=cfg.model.use_peft,
-            lora_r=cfg.model.lora_r,
-            lora_alpha=cfg.model.lora_alpha,
-            lora_dropout=cfg.model.lora_dropout,
-            lora_target_modules=cfg.model.lora_target_modules,
-            max_seq_length=cfg.model.max_seq_length,
-            lora_bias=cfg.model.lora_bias,
-            **cfg.training,  # 학습 관련 설정 전달
-        )
-        tokenizer = model.tokenizer
-
-        # Dataset 클래스 로드
-        logger.info(f"데이터셋 인스턴스화: {cfg.dataset.type}")
-        dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
-        dataset = dataset_cls(cfg.dataset.path)
-
-        # Dataset 로드 및 전처리
-        logger.info("데이터셋 전처리 시작")
-        processed_dataset = dataset.preprocess(
-            tokenizer,
-            max_length=cfg.model.max_seq_length,
-            template=cfg.prompt.name,
-            **cfg.dataset.preprocess.train,
-        )
-
-        logger.info("데이터셋 전처리 완료")
-
-        # 학습 데이터셋과 검증 데이터셋 분리 (임시로 9:1 분할)
-        split_dataset = processed_dataset["train"].train_test_split(test_size=0.1, seed=cfg.seed)
-
-        model.train(
-            train_dataset=split_dataset["train"],
-            eval_dataset=split_dataset["test"],
-            **cfg.training,
-        )
-
-    elif cfg.mode == "inference":
+    if cfg.mode == "inference":
         logger.info("추론 모드 시작")
         log_gpu_status(logger)
 

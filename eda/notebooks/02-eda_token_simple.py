@@ -24,24 +24,23 @@ import warnings
 
 # %% id="RHWr7XFf3k2X"
 # Load the train dataset
-# TODO Train Data 경로 입력
-dataset = pd.read_csv('train.csv')
+dataset = pd.read_csv("train.csv")
 
 # Flatten the JSON dataset
 records = []
 for _, row in dataset.iterrows():
-    problems = literal_eval(row['problems'])
+    problems = literal_eval(row["problems"])
     record = {
-        'id': row['id'],
-        'paragraph': row['paragraph'],
-        'question': problems['question'],
-        'choices': problems['choices'],
-        'answer': problems.get('answer', None),
-        "question_plus": problems.get('question_plus', None),
+        "id": row["id"],
+        "paragraph": row["paragraph"],
+        "question": problems["question"],
+        "choices": problems["choices"],
+        "answer": problems.get("answer", None),
+        "question_plus": problems.get("question_plus", None),
     }
     # Include 'question_plus' if it exists
-    if 'question_plus' in problems:
-        record['question_plus'] = problems['question_plus']
+    if "question_plus" in problems:
+        record["question_plus"] = problems["question_plus"]
     records.append(record)
 
 # Convert to DataFrame
@@ -62,7 +61,7 @@ print("=" * 50)
 
 # Token 수 계산
 print("\nToken 수 계산 중... (시간이 걸릴 수 있습니다)")
-df['token_count'] = df['paragraph'].apply(lambda x: len(tokenizer.encode(x, add_special_tokens=True)))
+df["token_count"] = df["paragraph"].apply(lambda x: len(tokenizer.encode(x, add_special_tokens=True)))
 print("✓ Token 수 계산 완료!")
 
 # %% colab={"base_uri": "https://localhost:8080/"} id="HSGY-XeViXBj" outputId="2968ec05-4b6a-4a70-f04c-1f72a70224e6"
@@ -82,11 +81,11 @@ print(f"최대 Token 수: {df['token_count'].max()}")
 print("\n" + "=" * 50)
 print("3. Token 범위별 분포")
 print("=" * 50)
-bins = [0, 100, 200, 300, 400, 500, 1000, 2000, float('inf')]
-labels = ['0-100', '100-200', '200-300', '300-400', '400-500', '500-1000', '1000-2000', '2000+']
-df['token_range'] = pd.cut(df['token_count'], bins=bins, labels=labels)
+bins = [0, 100, 200, 300, 400, 500, 1000, 2000, float("inf")]
+labels = ["0-100", "100-200", "200-300", "300-400", "400-500", "500-1000", "1000-2000", "2000+"]
+df["token_range"] = pd.cut(df["token_count"], bins=bins, labels=labels)
 
-range_counts = df['token_range'].value_counts().sort_index()
+range_counts = df["token_range"].value_counts().sort_index()
 for range_label, count in range_counts.items():
     pct = count / len(df) * 100
     print(f"{range_label} tokens: {count}개 ({pct:.2f}%)")

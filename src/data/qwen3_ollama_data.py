@@ -92,10 +92,9 @@ class Qwen3OllamaDataset(BaseDataset):
         logger.info(f"데이터셋 로드 완료: {self.data_path}, 총 샘플 수: {len(self.dataset['train'])}")
         return self.dataset
 
-    # TODO template 인자 쓸 것
     def preprocess(
         self,
-        template: str = "qwen3_2507_thinking",
+        template: str = None,
         **kwargs,
     ) -> DatasetDict:
         """
@@ -120,7 +119,7 @@ class Qwen3OllamaDataset(BaseDataset):
         return processed_dataset
 
 
-# TODO 미구현
+# TODO 구현 예정
 @DATASET_REGISTRY.register("ollama-eval")
 class Qwen3OllamaEvalDataset(Qwen3OllamaDataset):
     """

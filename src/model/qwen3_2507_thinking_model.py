@@ -104,11 +104,11 @@ class Qwen3_2507ThinkingModel(BaseModelABC):
         # TODO: top_p, top_k 안쓰는데?
         # TODO formatting 을 쓸 것
         # Ollama 모델명은 ollama_config["model"]에서 가져옴
-        model_name = self.ollama_config.get("model", self.model_name)
-        use_think = self.ollama_config.get("think", True)
-        temperature = self.ollama_config.get("temperature", 0.6)
-        use_structured = self.ollama_config.get("use_structured", True)
-        template_name = kwargs.get("template_name", "qwen3_2507_thinking")
+        model_name = self.model_name
+        use_think = self.ollama_config.get("think")
+        temperature = self.ollama_config.get("temperature")
+        use_structured = self.ollama_config.get("use_structured")
+        template_name = kwargs.get("template_name")
 
         logger.debug(
             f"Predict settings - model_name: {model_name}, think: {use_think}, temperature: {temperature}, structured: {use_structured}"
