@@ -50,6 +50,7 @@ class BaselineDataset(BaseDataset):
         add_generation_prompt: bool = False,
         filter_over_length: bool = False,
         truncation: bool = True,
+        exclude_answer_from_prompt: bool = False,  # ← evaluate 모드용 추가
         **kwargs,
     ) -> DatasetDict:
 
@@ -59,10 +60,16 @@ class BaselineDataset(BaseDataset):
         is_gemma = "gemma" in (tokenizer.name_or_path or "").lower()
 
         def tokenize_fn(examples):
+            # evaluate 모드에서는 answer를 프롬프트에서 제외
+            examples_for_prompt = examples.copy() if exclude_answer_from_prompt else examples
+            if exclude_answer_from_prompt:
+                # answer를 None으로 설정하여 assistant 메시지가 추가되지 않도록
+                examples_for_prompt["answer"] = [None] * len(examples["answer"])
+            
             # 1. 공통: chat message 생성
             chat_messages = build_chat_messages(
                 template_name=template,
-                examples=examples,
+                examples=examples_for_prompt,  # ← 수정된 examples 사용
             )
 
             # ------------------------------
