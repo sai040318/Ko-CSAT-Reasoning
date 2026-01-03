@@ -2,6 +2,7 @@ import hydra
 import pandas as pd
 import os
 import re
+import time
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
@@ -20,12 +21,14 @@ from hydra.core.hydra_config import HydraConfig
 logger = None
 
 
-# TODO: 시작 - 끝 타이머 추가 / 종료 기록
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
 @hydra.main(version_base=None, config_path="config", config_name="qwen3_2507_thinking")
 def main(cfg: DictConfig):
     global logger
+    # 타이머 시작
+    start_time = time.time()
+
     # 로깅 설정 (config에서 읽어옴)
     setup_logging(
         level=cfg.get("logging", {}).get("level", "INFO"),
@@ -162,6 +165,22 @@ def main(cfg: DictConfig):
             logger.info(f"결과를 {final_output_path}에 저장합니다.")
             df_output.to_csv(final_output_path, index=False)
             logger.info(f"결과 저장 완료: {final_output_path}")
+
+            # 실행 시간 정보 저장
+            elapsed_time = time.time() - start_time
+            minutes = int(elapsed_time // 60)
+            seconds = elapsed_time % 60
+
+            time_info_file = f"{base_file_name}.txt"
+            time_info_path = output_path / time_info_file
+
+            with open(time_info_path, "w", encoding="utf-8") as f:
+                f.write(f"실행 시간: {minutes}분 {seconds:.2f}초\n")
+                f.write(f"총 예측 개수: {len(predictions)}\n")
+                f.write(f"설정 파일: {current_config_name}\n")
+
+            logger.info(f"실행 시간 정보 저장 완료: {time_info_path}")
+            logger.info(f"총 실행 시간: {minutes}분 {seconds:.2f}초")
 
             # 추론에 사용한 입력 데이터셋 저장
             input_data_file_name = f"{base_file_name}_input_data.csv"
