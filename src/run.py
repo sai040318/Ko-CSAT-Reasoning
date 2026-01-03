@@ -62,11 +62,30 @@ def main(cfg: DictConfig):
             **cfg.dataset.preprocess.train
         )
 
+        # 📊 데이터셋을 8:2로 train/eval split
+        from datasets import DatasetDict
+        
+        full_dataset = processed_dataset["train"]
+        split_ratio = cfg.dataset.get("split_ratio", 0.8)  
+        
+        # train_test_split 사용
+        split_dataset = full_dataset.train_test_split(
+            train_size=split_ratio,
+            seed=cfg.seed
+        )
+        
+        train_dataset = split_dataset["train"]
+        eval_dataset = split_dataset["test"]
+        
         print("🚀 학습 모드 시작")
-        # train.csv 전체를 학습에 사용 (split 없이)
+        print(f"📊 데이터셋 split 완료:")
+        print(f"  - 학습 데이터: {len(train_dataset)}개 ({split_ratio*100:.0f}%)")
+        print(f"  - 평가 데이터: {len(eval_dataset)}개 ({(1-split_ratio)*100:.0f}%)")
+        
+        # 학습 및 평가
         model.train(
-            train_dataset=processed_dataset["train"],
-            eval_dataset=None,  # evaluation은 별도 모드에서 수행
+            train_dataset=train_dataset,
+            eval_dataset=None,
             **cfg.training
         )
         
@@ -147,20 +166,33 @@ def main(cfg: DictConfig):
 
         tokenizer = model.tokenizer
 
-        # eval.csv 로드 및 전처리
-        eval_dataset_path = cfg.evaluate.get("eval_dataset_path", "data/eval.csv")
-        if not os.path.exists(eval_dataset_path):
-            raise ValueError(f"평가 데이터셋 경로를 찾을 수 없습니다: {eval_dataset_path}")
-        
-        print(f"평가 데이터셋 로드 중: {eval_dataset_path}")
+        # 📊 train 모드와 동일하게 config의 path 데이터셋 로드
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
-        eval_dataset = dataset_cls(eval_dataset_path)
-        processed_eval_dataset = eval_dataset.preprocess(
+        dataset = dataset_cls(cfg.dataset.path)
+        
+        # Dataset 로드 및 전처리
+        processed_dataset = dataset.preprocess(
             tokenizer, 
             max_length=cfg.model.max_seq_length, 
             template=cfg.prompt.name, 
             **cfg.dataset.preprocess.inference
         )
+        
+        # 📊 데이터셋을 8:2로 train/eval split (train과 동일한 방식)
+        full_dataset = processed_dataset["train"]
+        split_ratio = cfg.dataset.get("split_ratio", 0.8)
+        
+        # train_test_split 사용 (동일한 seed로 train과 같은 split)
+        split_dataset = full_dataset.train_test_split(
+            train_size=split_ratio,
+            seed=cfg.seed
+        )
+        
+        # 평가용 데이터만 사용 (20%)
+        eval_dataset = split_dataset["test"]
+        
+        print(f"📊 평가 데이터셋 준비 완료:")
+        print(f"  - 평가 데이터: {len(eval_dataset)}개 ({(1-split_ratio)*100:.0f}%)")
 
         # 학습된 모델 로드
         model_load_path = cfg.evaluate.get("model_load_path", cfg.training.output_dir)
@@ -179,10 +211,10 @@ def main(cfg: DictConfig):
         print(f"모델 로드 중: {model_load_path}")
         model.load_model(model_load_path)
         
-        # eval.csv 전체를 사용하여 평가
+        # split된 평가 데이터로 평가
         metrics = model.evaluate(
-            processed_eval_dataset["train"],
-            eval_dataset_path=eval_dataset_path,
+            eval_dataset,
+            original_dataset_path=cfg.dataset.path,  # 원본 데이터 경로 전달
             eval_output_path=cfg.evaluate.get("eval_output_path", "output/eval_results.csv")
         )
         print(f"평가 결과 : {metrics}")
