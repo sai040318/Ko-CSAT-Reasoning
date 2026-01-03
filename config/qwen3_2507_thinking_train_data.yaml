@@ -58,6 +58,7 @@ ollama:
   temperature: 0.6
   top_p: 0.95
   top_k: 20
+  seed: 42
 
 # 프롬프트 템플릿 설정
 prompt:
@@ -66,13 +67,11 @@ prompt:
   # - qwen3_cot: Chain of Thought 스타일
   # - qwen3_expert: 전문가 역할 부여
   # - qwen3_structured: JSON 구조화 출력용
-  name: qwen3_2507_thinking
+  name: qwen3_2507_base
 
-# 모델 설정 (Ollama)
 model:
-  type: qwen3-ollama
-  # Ollama는 inference.ollama.model 사용
-  model_name_or_path: unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF
+  type: qwen3-ollama-thinking
+
 
 # 추론 설정
 inference:
