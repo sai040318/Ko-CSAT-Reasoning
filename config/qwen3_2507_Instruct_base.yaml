@@ -46,6 +46,8 @@ dataset:
       truncation: false
 
 # ollama 설정
+# TODO seed 고정, 컨텍스트 길이 제어, 확률적 생성 제어 추가 필수 
+# TODO 탬플릿 신택스 활용하거나 ollama api 내에서 처리할 것
 ollama:
   # 사용할 Ollama 모델명
   model: hf.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:UD-Q4_K_XL
@@ -68,18 +70,16 @@ prompt:
   # - qwen3_cot: Chain of Thought 스타일
   # - qwen3_expert: 전문가 역할 부여
   # - qwen3_structured: JSON 구조화 출력용
-  name: qwen3_2507_thinking
+  name: qwen3_2507_base
 
 # 모델 설정 (Ollama)
 model:
   type: qwen3-ollama-instruct
-  # Ollama는 inference.ollama.model 사용
-  # model_name_or_path: hf.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:UD-Q4_K_XL
   model_name_or_path: hf.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:UD-Q4_K_X
 
 # 추론 설정
 inference:
-  test_dataset_path: data/test.csv
+  test_dataset_path: {dataset.path}
   output_path: outputs
 
   # Ollama 설정

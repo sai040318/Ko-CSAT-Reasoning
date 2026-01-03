@@ -77,7 +77,7 @@ model:
 
 # 추론 설정
 inference:
-  test_dataset_path: data/test.csv
+  test_dataset_path: {dataset.path}
   output_path: outputs
 
   # Ollama 설정
