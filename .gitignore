@@ -21,6 +21,8 @@ checkpoints/
 **/checkpoints/
 logs/
 **/logs/
+**/*.ipynb_checkpoints
+*.ipynb
 
 # ===== Unsloth artifacts =====
 **/unsloth_compiled_cache/
