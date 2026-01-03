@@ -1,0 +1,85 @@
+# 기본 설정
+mode: train # train, inference, evaluate
+seed: 42
+exp_name: unsloth_qwen2.5_32b_exp
+
+# Hydra 설정
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+
+# 데이터셋 설정
+dataset:
+  type: baseline
+  path: data/train.csv
+  
+  # 전처리 옵션
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: true
+      truncation: true
+    inference:
+      add_generation_prompt: true
+      filter_over_length: false
+      truncation: true
+
+# 프롬프트 탬플릿(txt) 설정
+prompt:
+  name: base
+
+# 모델 설정 (Unsloth)
+model:
+  type: unsloth 
+  model_name_or_path: "unsloth/Qwen2.5-32B-Instruct-bnb-4bit"
+  use_peft: true
+  max_seq_length: 4096 # 32B 모델은 메모리 고려하여 4096으로 설정
+  load_in_4bit: true   # Unsloth 4bit 로드
+  
+  # LoRA 설정 (32B 모델 최적화)
+  lora_r: 32           # 큰 모델은 더 높은 rank 활용 가능
+  lora_alpha: 32       # r과 동일하게 설정
+  lora_dropout: 0      # Unsloth은 0 권장
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  lora_bias: "none"
+
+# 학습 설정 (32B 모델 최적화)
+training:
+  output_dir: output/unsloth_qwen2.5_32b
+  num_train_epochs: 2
+  per_device_train_batch_size: 1 # 32B 모델은 배치 1로 안정성 확보
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16 # Effective batch size = 16
+  learning_rate: 1e-4  # 큰 모델은 낮은 lr로 안정적 학습
+  lr_scheduler_type: "cosine"  # Cosine이 일반적으로 더 좋은 성능
+  warmup_ratio: 0.03   # 전체 step의 3% warmup
+  weight_decay: 0.01
+  max_grad_norm: 1.0   # Gradient clipping으로 안정성 확보
+  logging_steps: 1   # 1 step마다 로그 출력
+  save_strategy: "epoch"
+  eval_strategy: "no"  
+  save_total_limit: 2
+  save_only_model: true
+  fp16: true
+  bf16: false
+  packing: true        # Unsloth packing으로 효율성 향상
+  report_to: "none"    # wandb 사용 시 "wandb"로 변경
+
+# 추론 설정
+inference:
+  max_new_tokens: 1
+  batch_size: 1        # 추론도 배치 1로 안정성 확보
+  test_dataset_path: data/test.csv
+  model_load_path: output/unsloth_qwen2.5_32b
+  output_path: output/qwen2.5_32b_output.csv
+
+# 평가 설정
+evaluate:
+  eval_dataset_path: data/eval.csv
+  model_load_path: output/unsloth_qwen2.5_32b
+  eval_output_path: output/qwen2.5_32b_eval_output.csv
+
+# RAG 설정 (미사용)
+rag:
+  use: false
