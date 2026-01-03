@@ -208,13 +208,52 @@ class UnslothModel(BaseModel):
                 df_original.to_csv(eval_output_path, index=False)
                 print(f"✅ 평가 결과 CSV 저장 완료: {eval_output_path}")
             else:
-                # 원본 CSV가 없을 경우 기본 형식으로 저장
-                df_results = pd.DataFrame({
-                    "id": ids,
-                    "answer": [labels[i] + 1 for i in range(len(labels))],  # 1~5로 변환
-                    "predict": [infer_results[i] + 1 for i in range(len(infer_results))],  # 1~5로 변환
-                    "correct": ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
-                })
+                # 원본 CSV가 없을 경우, original_dataset_path로 원본 데이터 로드 시도
+                original_dataset_path = kwargs.get("original_dataset_path", None)
+                
+                if original_dataset_path and os.path.exists(original_dataset_path):
+                    # 원본 CSV 로드하여 id로 매칭
+                    from ast import literal_eval
+                    df_original = pd.read_csv(original_dataset_path)
+                    
+                    # id를 기준으로 필요한 정보 추출
+                    id_to_data = {}
+                    for _, row in df_original.iterrows():
+                        problems = literal_eval(row["problems"])
+                        id_to_data[row["id"]] = {
+                            "paragraph": row["paragraph"],
+                            "question": problems["question"],
+                            "choices": problems["choices"],
+                            "answer": problems.get("answer", None),
+                            "question_plus": problems.get("question_plus", None)
+                        }
+                    
+                    # 평가된 샘플의 정보만 수집
+                    result_data = []
+                    for i in range(len(ids)):
+                        sample_id = ids[i]
+                        if sample_id in id_to_data:
+                            data = id_to_data[sample_id]
+                            result_data.append({
+                                "id": sample_id,
+                                "paragraph": data["paragraph"],
+                                "question": data["question"],
+                                "choices": str(data["choices"]),  # list를 문자열로
+                                "answer": labels[i] + 1,  # 1~5로 변환
+                                "predict": infer_results[i] + 1,  # 1~5로 변환
+                                "correct": "O" if infer_results[i] == labels[i] else "X"
+                            })
+                    
+                    df_results = pd.DataFrame(result_data)
+                else:
+                    # 원본 데이터도 없으면 기본 형식으로 저장
+                    df_results = pd.DataFrame({
+                        "id": ids,
+                        "answer": [labels[i] + 1 for i in range(len(labels))],  # 1~5로 변환
+                        "predict": [infer_results[i] + 1 for i in range(len(infer_results))],  # 1~5로 변환
+                        "correct": ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
+                    })
+                
                 os.makedirs(os.path.dirname(eval_output_path), exist_ok=True)
                 df_results.to_csv(eval_output_path, index=False)
                 print(f"✅ 평가 결과 CSV 저장 완료: {eval_output_path}")
