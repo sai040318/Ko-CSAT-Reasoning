@@ -12,7 +12,7 @@ hydra:
 # 데이터셋 설정
 dataset:
   type: baseline
-  path: data/train.csv
+  path: src/data/train.csv
   
   # 전처리 옵션
   preprocess:
@@ -47,7 +47,7 @@ model:
 # 학습 설정 (32B 모델 최적화)
 training:
   output_dir: output/unsloth_qwen2.5_32b
-  num_train_epochs: 2
+  num_train_epochs: 1
   per_device_train_batch_size: 1 # 32B 모델은 배치 1로 안정성 확보
   per_device_eval_batch_size: 1
   gradient_accumulation_steps: 16 # Effective batch size = 16
@@ -76,7 +76,7 @@ inference:
 
 # 평가 설정
 evaluate:
-  eval_dataset_path: data/eval.csv
+  eval_dataset_path: src/data/history_dataset.csv
   model_load_path: output/unsloth_qwen2.5_32b
   eval_output_path: output/qwen2.5_32b_eval_output.csv
 

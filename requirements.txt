@@ -19,3 +19,11 @@ wandb
 python-dotenv
 torchvision==0.24.1
 
+# RAG dependencies
+langchain
+langchain-community
+langchain-openai
+langchain-core
+faiss-cpu
+rank_bm25
+tiktoken
