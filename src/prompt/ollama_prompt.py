@@ -1,12 +1,14 @@
+# (2) PromptBuilder: 선택지 개수(n_choices)와 보기 구획을 안정적으로 넣기
+# src/prompt/ollama_prompt.py
+
 from pathlib import Path
 import re
 from typing import Optional
 
 
-# TODO qwen3_2507_thinking_prompt 반드시 수정
 class OllamaPromptBuilder:
     """
-    Qwen3-2507 Thinking 모델용 프롬프트 빌더 클래스.
+    Qwen3-2507-ollama 모델용 프롬프트 빌더 클래스.
 
     사용 예시:
         builder = OllamaPromptBuilder()
@@ -18,14 +20,15 @@ class OllamaPromptBuilder:
     """
 
     TEMPLATE_DIR = Path(__file__).parent
-    DEFAULT_TEMPLATE = "qwen3_2507_thinking"
 
     def __init__(self, template_name: Optional[str] = None):
         """
         Args:
-            template_name: 사용할 템플릿 이름 (기본값: qwen3-2507_thinking)
+            template_name: 사용할 템플릿 이름 (기본값: qwen3-2507_base)
         """
-        self.template_name = template_name or self.DEFAULT_TEMPLATE
+        self.template_name = template_name
+        if self.template_name is None:
+            raise ValueError("template_name must be provided")
         self._template_cache: Optional[str] = None
 
     @property
@@ -62,13 +65,14 @@ class OllamaPromptBuilder:
 
     def _format_choices(self, choices: list[str]) -> str:
         """선택지를 포맷팅"""
-        return "\n".join(f"{idx + 1} - {choice}" for idx, choice in enumerate(choices))
+        # 모델이 "1 - ..."에서 하이픈을 내용의 일부로 오인하는 경우가 있어 (.) 형식을 권장
+        return "\n".join(f"{idx + 1}. {choice}" for idx, choice in enumerate(choices))
 
     def _format_question_plus(self, question_plus: Optional[str]) -> str:
         """보기 포맷팅"""
         if question_plus:
-            return f"<보 기>\n{question_plus}"
-        return ""
+            return f"[보기]\n{question_plus}"
+        return ""  # 템플릿에서 {question_plus}가 비면 해당 블록이 자연스럽게 사라지도록 설계
 
     # TODO MODELFILE, TEMPLATE 등으로 더 개선
     def build_single(
@@ -100,6 +104,7 @@ class OllamaPromptBuilder:
             question=question,
             question_plus=qp_str,
             choices=choices_str,
+            n_choices=len(choices),
         )
 
         messages = self._parse_chat_template(filled)
@@ -143,47 +148,114 @@ class OllamaPromptBuilder:
         return chat_messages
 
 
-# 하위 호환성을 위한 함수 래퍼
-def load_template(name: str) -> str:
-    builder = OllamaPromptBuilder(template_name=name)
-    return builder._load_template(name)
-
-
-def parse_chat_template(text: str) -> list[dict]:
-    return OllamaPromptBuilder._parse_chat_template(text)
-
-
-def build_chat_messages(*, template_name: str, examples: dict) -> list[list[dict]]:
-    builder = OllamaPromptBuilder(template_name=template_name)
-    return builder.build_batch(examples)
-
-
 if __name__ == "__main__":
-    # 단일 문제 테스트
-    builder = OllamaPromptBuilder()
-
-    single_msg = builder.build_single(
-        paragraph="고종은 대한제국을 선포하였다.",
-        question="다음 중 옳은 것은?",
-        choices=["조선", "대한제국", "고려"],
-        answer=2,
-    )
-
-    print("=== Single Message ===")
     from pprint import pprint
+    import sys
 
-    pprint(single_msg)
+    print("=" * 60)
+    print("OllamaPromptBuilder 테스트")
+    print("=" * 60)
 
-    # 배치 테스트
-    examples = {
-        "paragraph": ["고종은 대한제국을 선포하였다."],
-        "question_plus": [None],
-        "question": ["다음 중 옳은 것은?"],
-        "choices": [["조선", "대한제국", "고려"]],
-        "answer": [2],
-    }
+    # 1. 템플릿 설정
+    print("\n[1] 템플릿 확인")
+    template_name = "qwen3_2507_base"
+    template_dir = Path(__file__).parent
+    print(f"템플릿 디렉토리: {template_dir}")
+    print(f"테스트 템플릿: {template_name}")
 
-    batch_msgs = builder.build_batch(examples)
+    # 2. 빌더 초기화 테스트
+    print("\n[2] 빌더 초기화 테스트")
+    try:
+        builder = OllamaPromptBuilder(template_name=template_name)
+        print(f"✓ 빌더 초기화 성공: {builder.template_name}")
+        print(f"✓ 템플릿 로드 성공 (길이: {len(builder.template)} 문자)")
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        sys.exit(1)
 
-    print("\n=== Batch Messages ===")
-    pprint(batch_msgs)
+    # 3. 단일 문제 테스트 (question_plus 없음)
+    print("\n[3] 단일 문제 테스트 (보기 없음)")
+    try:
+        single_msg = builder.build_single(
+            paragraph="고종은 1897년에 국호를 대한제국으로 바꾸고 황제에 즉위하였다.",
+            question="다음 중 고종이 선포한 국가는?",
+            choices=["조선", "대한제국", "고려", "신라", "백제"],
+            answer=2,
+        )
+        print("✓ 메시지 생성 성공")
+        print(f"  - 메시지 수: {len(single_msg)}")
+        print(f"  - 역할 순서: {[msg['role'] for msg in single_msg]}")
+        print("\n메시지 내용:")
+        pprint(single_msg, width=100)
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+    # 4. 단일 문제 테스트 (question_plus 있음)
+    print("\n[4] 단일 문제 테스트 (보기 있음)")
+    try:
+        single_msg_plus = builder.build_single(
+            paragraph="조선 시대의 토지 제도에 대한 지문입니다.",
+            question="다음 <보기>의 설명 중 옳은 것을 모두 고르면?",
+            choices=["ㄱ, ㄴ", "ㄱ, ㄷ", "ㄴ, ㄷ", "ㄱ, ㄴ, ㄷ"],
+            question_plus="ㄱ. 과전법은 토지를 지급하였다.\nㄴ. 직전법은 현직 관리에게만 지급하였다.\nㄷ. 녹봉제는 토지 대신 곡물로 지급하였다.",
+            answer=4,
+        )
+        print("✓ 메시지 생성 성공 (보기 포함)")
+        print(f"  - 메시지 수: {len(single_msg_plus)}")
+        print(f"\n마지막 user 메시지 미리보기:")
+        user_msgs = [msg for msg in single_msg_plus if msg["role"] == "user"]
+        if user_msgs:
+            print(user_msgs[-1]["content"][:300] + "...")
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+
+    # 5. 배치 테스트
+    print("\n[5] 배치 처리 테스트")
+    try:
+        examples = {
+            "paragraph": [
+                "고종은 1897년에 국호를 대한제국으로 바꾸고 황제에 즉위하였다.",
+                "세종대왕은 한글을 창제하였다.",
+            ],
+            "question": [
+                "다음 중 고종이 선포한 국가는?",
+                "세종대왕이 창제한 것은?",
+            ],
+            "choices": [
+                ["조선", "대한제국", "고려", "신라", "백제"],
+                ["한자", "한글", "영어", "일본어"],
+            ],
+            "question_plus": [None, None],
+            "answer": [2, 2],
+        }
+
+        batch_msgs = builder.build_batch(examples)
+        print(f"✓ 배치 처리 성공: {len(batch_msgs)}개 문제")
+        for i, msgs in enumerate(batch_msgs):
+            print(f"  - 문제 {i + 1}: {len(msgs)}개 메시지, 역할: {[m['role'] for m in msgs]}")
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+    # 6. 선택지 포맷 테스트
+    print("\n[6] 선택지 포맷팅 테스트")
+    test_choices = ["선택지 1", "선택지 2", "선택지 3"]
+    formatted = builder._format_choices(test_choices)
+    print("입력:", test_choices)
+    print(f"출력:\n{formatted}")
+
+    # 7. 보기 포맷팅 테스트
+    print("\n[7] 보기 포맷팅 테스트")
+    test_qp = "ㄱ. 첫 번째\nㄴ. 두 번째"
+    formatted_qp = builder._format_question_plus(test_qp)
+    print("입력:", test_qp)
+    print(f"출력:\n{formatted_qp}")
+
+    print("\n" + "=" * 60)
+    print("✓ 모든 테스트 완료")
+    print("=" * 60)
