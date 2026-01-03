@@ -25,6 +25,11 @@ dataset:
       add_generation_prompt: true
       filter_over_length: false
       truncation: true
+    evaluate: 
+      add_generation_prompt: true
+      filter_over_length: false
+      truncation: true
+      exclude_answer_from_prompt: true
 
 # 프롬프트 탬플릿(txt) 설정
 prompt:
