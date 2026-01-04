@@ -116,38 +116,38 @@ class OllamaPromptBuilder:
 
         return messages
 
-    def build_batch(self, examples: dict) -> list[list[dict]]:
-        """
-        배치 데이터에 대한 chat messages 생성
+    # def build_batch(self, examples: dict) -> list[list[dict]]:
+    #     """
+    #     배치 데이터에 대한 chat messages 생성
 
-        Args:
-            examples: {
-                "paragraph": [...],
-                "question": [...],
-                "choices": [...],
-                "question_plus": [...],  # optional
-                "answer": [...]  # optional
-            }
+    #     Args:
+    #         examples: {
+    #             "paragraph": [...],
+    #             "question": [...],
+    #             "choices": [...],
+    #             "question_plus": [...],  # optional
+    #             "answer": [...]  # optional
+    #         }
 
-        Returns:
-            [[{"role": "...", "content": "..."}, ...], ...]
-        """
-        n = len(examples["paragraph"])
-        q_plus_list = examples.get("question_plus", [None] * n)
-        answer_list = examples.get("answer", [None] * n)
+    #     Returns:
+    #         [[{"role": "...", "content": "..."}, ...], ...]
+    #     """
+    #     n = len(examples["paragraph"])
+    #     q_plus_list = examples.get("question_plus", [None] * n)
+    #     answer_list = examples.get("answer", [None] * n)
 
-        chat_messages = []
-        for i in range(n):
-            messages = self.build_single(
-                paragraph=examples["paragraph"][i],
-                question=examples["question"][i],
-                choices=examples["choices"][i],
-                question_plus=q_plus_list[i] if q_plus_list[i] else None,
-                answer=answer_list[i] if answer_list[i] not in [None, ""] else None,
-            )
-            chat_messages.append(messages)
+    #     chat_messages = []
+    #     for i in range(n):
+    #         messages = self.build_single(
+    #             paragraph=examples["paragraph"][i],
+    #             question=examples["question"][i],
+    #             choices=examples["choices"][i],
+    #             question_plus=q_plus_list[i] if q_plus_list[i] else None,
+    #             answer=answer_list[i] if answer_list[i] not in [None, ""] else None,
+    #         )
+    #         chat_messages.append(messages)
 
-        return chat_messages
+    #     return chat_messages
 
 
 if __name__ == "__main__":
@@ -182,7 +182,6 @@ if __name__ == "__main__":
             paragraph="고종은 1897년에 국호를 대한제국으로 바꾸고 황제에 즉위하였다.",
             question="다음 중 고종이 선포한 국가는?",
             choices=["조선", "대한제국", "고려", "신라", "백제"],
-            answer=2,
         )
         print("✓ 메시지 생성 성공")
         print(f"  - 메시지 수: {len(single_msg)}")
@@ -214,35 +213,35 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"❌ ERROR: {e}")
 
-    # 5. 배치 테스트
-    print("\n[5] 배치 처리 테스트")
-    try:
-        examples = {
-            "paragraph": [
-                "고종은 1897년에 국호를 대한제국으로 바꾸고 황제에 즉위하였다.",
-                "세종대왕은 한글을 창제하였다.",
-            ],
-            "question": [
-                "다음 중 고종이 선포한 국가는?",
-                "세종대왕이 창제한 것은?",
-            ],
-            "choices": [
-                ["조선", "대한제국", "고려", "신라", "백제"],
-                ["한자", "한글", "영어", "일본어"],
-            ],
-            "question_plus": [None, None],
-            "answer": [2, 2],
-        }
+    # # 5. 배치 테스트
+    # print("\n[5] 배치 처리 테스트")
+    # try:
+    #     examples = {
+    #         "paragraph": [
+    #             "고종은 1897년에 국호를 대한제국으로 바꾸고 황제에 즉위하였다.",
+    #             "세종대왕은 한글을 창제하였다.",
+    #         ],
+    #         "question": [
+    #             "다음 중 고종이 선포한 국가는?",
+    #             "세종대왕이 창제한 것은?",
+    #         ],
+    #         "choices": [
+    #             ["조선", "대한제국", "고려", "신라", "백제"],
+    #             ["한자", "한글", "영어", "일본어"],
+    #         ],
+    #         "question_plus": [None, None],
+    #         "answer": [2, 2],
+    #     }
 
-        batch_msgs = builder.build_batch(examples)
-        print(f"✓ 배치 처리 성공: {len(batch_msgs)}개 문제")
-        for i, msgs in enumerate(batch_msgs):
-            print(f"  - 문제 {i + 1}: {len(msgs)}개 메시지, 역할: {[m['role'] for m in msgs]}")
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
-        import traceback
+    #     batch_msgs = builder.build_batch(examples)
+    #     print(f"✓ 배치 처리 성공: {len(batch_msgs)}개 문제")
+    #     for i, msgs in enumerate(batch_msgs):
+    #         print(f"  - 문제 {i + 1}: {len(msgs)}개 메시지, 역할: {[m['role'] for m in msgs]}")
+    # except Exception as e:
+    #     print(f"❌ ERROR: {e}")
+    #     import traceback
 
-        traceback.print_exc()
+    #     traceback.print_exc()
 
     # 6. 선택지 포맷 테스트
     print("\n[6] 선택지 포맷팅 테스트")
