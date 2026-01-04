@@ -1,0 +1,106 @@
+# DPO 학습 설정
+mode: train
+train_type: dpo  # "sft" 또는 "dpo"
+seed: 42
+exp_name: unsloth_qwen2.5_32b_dpo
+
+# Hydra 설정
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+
+# 데이터셋 설정
+dataset:
+  # SFT 데이터셋 (기존)
+  type: baseline
+  path: data/train.csv
+  
+  # DPO 데이터셋 (새로 추가)
+  dpo_type: dpo
+  dpo_path: data/dpo_train.csv
+  
+  # 전처리 옵션
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: true
+      truncation: true
+    inference:
+      add_generation_prompt: true
+      filter_over_length: false
+      truncation: true
+    dpo:
+      # DPO는 기본적으로 prompt, chosen, rejected만 필요
+      # 추가 전처리가 필요하면 여기에 설정
+
+# 프롬프트 탬플릿(txt) 설정
+prompt:
+  name: base
+
+# 모델 설정 (Unsloth)
+model:
+  type: unsloth 
+  model_name_or_path: "output/unsloth_qwen2.5_32b/checkpoint-44"  
+  use_peft: true
+  max_seq_length: 2048 # 32B 모델은 메모리 고려하여 4096으로 설정
+  load_in_4bit: true   # Unsloth 4bit 로드
+  
+  # LoRA 설정 (32B 모델 최적화)
+  lora_r: 32          # 큰 모델은 더 높은 rank 활용 가능
+  lora_alpha: 32       # r과 동일하게 설정
+  lora_dropout: 0      # Unsloth은 0 권장
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  lora_bias: "none"
+
+# 기본 학습 설정 (SFT와 DPO 공통)
+training:
+  output_dir: output/unsloth_qwen2.5_32b_dpo
+  num_train_epochs: 1  # DPO는 1~2 에폭으로 충분
+  per_device_train_batch_size: 1 # 32B 모델은 배치 1로 안정성 확보
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16 # DPO는 effective batch size를 8~16 정도로
+  learning_rate: 5e-5  # DPO는 SFT보다 낮은 학습률 권장 (5e-6 ~ 5e-5)
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1    # DPO는 충분한 warmup 필요
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_strategy: "epoch"
+  eval_strategy: "no"  
+  save_total_limit: 2
+  save_only_model: true
+  fp16: true
+  bf16: false
+  packing: false       # DPO는 packing을 끄는 것이 안정적
+  report_to: "none"
+
+# DPO 전용 설정
+dpo:
+  beta: 0.1  # DPO loss의 온도 파라미터 (0.1~0.5 권장)
+             # 낮을수록 reference model에 가깝게, 높을수록 preference에 민감
+  
+  max_prompt_length: 512  # prompt 부분의 최대 길이
+  max_length: 1024         # 전체 시퀀스 최대 길이 (prompt + response)
+  
+  # 참고: beta 값 조정 가이드
+  # - 0.05~0.1: 보수적 학습, reference model과 가까움
+  # - 0.1~0.2: 일반적 설정, 균형잡힌 학습
+  # - 0.2~0.5: 공격적 학습, preference에 강하게 반응
+
+# 추론 설정
+inference:
+  max_new_tokens: 1
+  batch_size: 1
+  test_dataset_path: data/test.csv
+  model_load_path: output/unsloth_qwen2.5_32b_dpo
+  output_path: output/qwen2.5_32b_dpo_output.csv
+
+# 평가 설정
+evaluate:
+  eval_dataset_path: data/eval.csv
+  model_load_path: output/unsloth_qwen2.5_32b_dpo
+
+# RAG 설정 (미사용)
+rag:
+  use: false
