@@ -43,8 +43,11 @@ Qwen3-2507 Ollama 통합 모델 모듈.
 | min_p      | 0.0      | 0.0      |
 """
 
+import logging
 import re
 import sys
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional, Set
 from datasets import Dataset
 from tqdm import tqdm
@@ -59,6 +62,17 @@ from src.utils import get_logger
 from src.prompt.ollama_prompt import OllamaPromptBuilder
 
 logger = get_logger(__name__)
+
+# 파일 로거 (터미널 + 파일 양쪽 출력)
+_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+_log_path = Path(f"logs/ollama_{_timestamp}.log")
+_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+file_logger = logging.getLogger("ollama.response")
+file_logger.setLevel(logging.DEBUG)
+_fh = logging.FileHandler(_log_path, encoding="utf-8")
+_fh.setFormatter(logging.Formatter("%(asctime)s | %(message)s"))
+file_logger.addHandler(_fh)
 
 
 # ===========================================
@@ -335,9 +349,9 @@ class Qwen3_2507OllamaModel(BaseModelABC):
             elif msg["role"] == "user":
                 prompt_msg = msg["content"]
 
-        if counter % 10 == 0:
-            logger.debug(f"[{row['id']}] System: {system_msg[:200]}...")
-            logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:500]}...")
+        if counter % 20 == 0:
+            logger.debug(f"[{row['id']}] System: {system_msg[:100]}...")
+            logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:200]}...")
 
         # TODO response 항목 반드시 로그로 출력해보기
         # Ollama generate() 호출
@@ -354,6 +368,15 @@ class Qwen3_2507OllamaModel(BaseModelABC):
                 options=options,
             )
 
+            file_logger.debug(f"\n================== [{row['id']}] ====================\n")
+            file_logger.debug(f" Generated structured output.")
+            file_logger.debug(f" Format schema: {AnswerResponse.model_json_schema()}")
+            file_logger.debug(f" respone type: {type(response)}")
+            # file_logger.debug(f" Structured response: {response}...")
+            file_logger.debug(f" [response.response]: {response.response}...")
+            file_logger.debug(f" [response.thinking]: {response.thinking}")
+            file_logger.debug(f" response.logprobs: {response.logprobs}")
+
             # JSON 파싱 (generate는 response.response 사용)
             result = AnswerResponse.model_validate_json(response.response)
             answer = result.answer
@@ -368,6 +391,14 @@ class Qwen3_2507OllamaModel(BaseModelABC):
                 stream=False,
                 options=options,
             )
+            file_logger.debug("==========================================================")
+            file_logger.debug(f"======== [{row['id']}] ========")
+            file_logger.debug("==========================================================")
+            file_logger.debug(f" Generated non structured output.\n\n")
+            file_logger.debug(f" respone type: {type(response)}\n\n")
+            file_logger.debug(f" response.response: {response.response}...\n\n")
+            file_logger.debug(f" response.thinking: {response.thinking}\n\n")
+            file_logger.debug(f" response.logprobs: {response.logprobs}\n\n")
 
             # 텍스트에서 숫자 추출
             answer = self._parse_answer_from_text(response.response)
