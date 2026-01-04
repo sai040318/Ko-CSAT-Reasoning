@@ -170,12 +170,15 @@ def main(cfg: DictConfig):
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
         
+        # ✅ evaluate 전용 설정 사용 (없으면 inference 설정 fallback)
+        eval_preprocess_config = cfg.dataset.preprocess.get("evaluate", cfg.dataset.preprocess.inference)
+        
         # Dataset 로드 및 전처리
         processed_dataset = dataset.preprocess(
             tokenizer, 
             max_length=cfg.model.max_seq_length, 
             template=cfg.prompt.name, 
-            **cfg.dataset.preprocess.inference
+            **eval_preprocess_config  # ← evaluate 설정 사용
         )
         
         # 📊 데이터셋을 8:2로 train/eval split (train과 동일한 방식)
