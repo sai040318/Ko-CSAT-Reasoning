@@ -1,0 +1,85 @@
+# Qwen3-2507 Ollama Thinking 모델 설정
+# Base 설정을 상속하고 Thinking 모델에 최적화된 값으로 오버라이드
+
+# hydra 설정
+defaults:
+  - _self_
+  - override hydra/hydra_logging: none
+  - override hydra/job_logging: none
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: .
+  output_subdir: null
+
+# 로깅 설정
+logging:
+  level: DEBUG
+  tune_third_party: true
+  use_color: true
+
+
+################################################################
+######################## 실험 설정 ##############################
+################################################################
+
+mode: inference
+seed: 42
+exp_name: qwen3-2507-ollama-thinking
+
+# 데이터셋 설정
+dataset:
+  type: ollama
+  path: data/train.csv
+
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: false
+      truncation: false
+    inference:
+      add_generation_prompt: false
+      filter_over_length: false
+      truncation: false
+
+# 모델 설정 (Thinking)
+model:
+  type: qwen3-2507_ollama
+  variant: thinking
+  model_name_or_path: "hf.co/unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF:UD-Q4_K_XL"
+
+# Ollama 설정 (Thinking 최적화)
+ollama:
+  # thinking 모델에서도 think=false로 사용 가능
+  # true: 추론 과정(<think>...</think>) 포함
+  # false: 바로 답변 (더 빠름)
+  think: true
+  use_structured: true
+
+  options:
+    # V100 32GB - 최대 컨텍스트 활용
+    # thinking 모델은 추론 과정이 길어질 수 있으므로 큰 값 권장
+    num_ctx: 131072 # max는 256k
+    # num_predict: -1  # 무제한 (thinking이 중간에 끊기지 않도록)
+    num_predict: 32768
+
+    # Qwen3-2507 Thinking 권장값
+    # https://unsloth.ai/docs/models/qwen3-how-to-run-and-fine-tune/qwen3-2507
+    temperature: 0.6
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+    presence_penalty: 0.2 # 0.0 ~ 2.0
+
+    seed: 42
+
+# 프롬프트 템플릿 설정
+prompt:
+  name: qwen3_2507_base
+
+# 추론 설정
+inference:
+  test_dataset_path: data/test.csv
+  output_path: outputs
