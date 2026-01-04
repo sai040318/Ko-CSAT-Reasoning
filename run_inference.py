@@ -23,7 +23,7 @@ logger = None
 
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
-@hydra.main(version_base=None, config_path="config", config_name="qwen3_2507_thinking")
+@hydra.main(version_base=None, config_path="config", config_name="qwen3_2507_ollama_base")
 def main(cfg: DictConfig):
     global logger
     # 타이머 시작
@@ -51,7 +51,6 @@ def main(cfg: DictConfig):
     current_config_name = hydra_cfg.job.config_name
     logger.debug(f"config file path: {current_config_name}")
     logger.debug(f"model_type: {cfg.model.type}")
-    logger.debug(f"model_name_or_path: {cfg.model.model_name_or_path}")
     logger.debug(f"dataset_type: {cfg.dataset.type}")
     logger.debug(f"config file content:\n{OmegaConf.to_yaml(cfg)}")
 
@@ -63,17 +62,8 @@ def main(cfg: DictConfig):
         logger.info("추론 모드 시작")
         log_gpu_status(logger)
 
-        # 2-1. Model 초기화
-        try:
-            ollama_config = OmegaConf.to_container(cfg.get("ollama"), resolve=True)
-        except Exception:
-            raise ValueError("inference.ollama 설정을 불러오는 데 실패했습니다.")
-
-        logger.debug(f"ollama_config: {ollama_config}")
-        model = model_cls(
-            model_name_or_path=cfg.model.get("model_name_or_path"),
-            ollama=ollama_config,
-        )
+        # 2-1. Model 초기화 (cfg 전체 전달)
+        model = model_cls(cfg=cfg)
 
         # 2-2. 추론용 데이터셋 전처리 시작
         logger.info(f"추론용 데이터셋 전처리 시작")
