@@ -339,6 +339,7 @@ class Qwen3_2507OllamaModel(BaseModelABC):
             logger.debug(f"[{row['id']}] System: {system_msg[:200]}...")
             logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:500]}...")
 
+        # TODO response 항목 반드시 로그로 출력해보기
         # Ollama generate() 호출
         if use_structured:
             # Structured Output 사용 - JSON 스키마 강제

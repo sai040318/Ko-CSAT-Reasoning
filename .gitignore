@@ -31,7 +31,7 @@ logs/
 # ===== unused docs =====
 COMPETITION_GUIDE.md
 AGENTS.md
-stdout_stderr_example.md
+stdout_stderr_redirect.md
 
 # ===== uv env =====
 **/sota_inference.egg-info/
@@ -42,3 +42,6 @@ stdout_stderr_example.md
 # ===== Ollama model files =====
 **/ollama-python/
 .vscode/settings.json
+
+# ===== others scripts =====
+**/others_scripts/

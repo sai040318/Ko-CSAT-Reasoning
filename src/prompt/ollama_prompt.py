@@ -6,6 +6,8 @@ import re
 from typing import Optional
 
 
+# TODO: json으로 답하라는 형식 지정 프롬프트는 무조건 없애는 게 좋을듯 차라리 logit 쓰거나 thinking
+# ollama api에 대해 더 공부할 것
 class OllamaPromptBuilder:
     """
     Qwen3-2507-ollama 모델용 프롬프트 빌더 클래스.
