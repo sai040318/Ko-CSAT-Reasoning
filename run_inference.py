@@ -96,14 +96,18 @@ def main(cfg: DictConfig):
         # 2-6. output.csv 저장
         try:
             output_path = Path(cfg.inference.get("output_path", "outputs/fallback"))
-            os.makedirs(output_path, exist_ok=True)
 
             from datetime import datetime
 
             timestamp = datetime.now().strftime("%m%d_%H%M%S")
-            base_file_name = f"{current_config_name}_{timestamp}_output"
+            # base_file 디렉토리 생성 (예: qwen3_2507_ollama_thinking_0104_162858)
+            base_dir_name = f"{current_config_name}_{timestamp}"
+            base_output_path = output_path / base_dir_name
+            os.makedirs(base_output_path, exist_ok=True)
+
+            base_file_name = f"{base_dir_name}_output"
             file_name = f"{base_file_name}.csv"
-            final_output_path = output_path / file_name
+            final_output_path = base_output_path / file_name
 
             # 중복 파일명 처리
             # # predictions 딕셔너리를 DataFrame으로 변환
@@ -119,7 +123,7 @@ def main(cfg: DictConfig):
             seconds = elapsed_time % 60
 
             time_info_file = f"{base_file_name}.txt"
-            time_info_path = output_path / time_info_file
+            time_info_path = base_output_path / time_info_file
 
             with open(time_info_path, "w", encoding="utf-8") as f:
                 f.write(f"실행 시간: {minutes}분 {seconds:.2f}초\n")
@@ -131,7 +135,7 @@ def main(cfg: DictConfig):
 
             # 추론에 사용한 입력 데이터셋 저장
             input_data_file_name = f"{base_file_name}_input_data.csv"
-            input_data_path = output_path / input_data_file_name
+            input_data_path = base_output_path / input_data_file_name
 
             # processed_test_dataset에서 DataFrame 생성
             input_df = pd.DataFrame(processed_test_dataset["train"])
