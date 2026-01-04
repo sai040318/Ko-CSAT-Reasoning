@@ -12,21 +12,12 @@ try:
 except ImportError as e:
     logger.debug(f"unsloth 라이브러리 로드 실패: {e}")
 
-
-# Ollama 기반 모델 (torch 불필요)
 try:
-    from .qwen3_2507_thinking_model import Qwen3_2507ThinkingModel
+    import src.model.qwen3_2507_ollama
 
-    __all__.append("Qwen3_2507ThinkingModel")
+    __all__.append("Qwen3_2507OllamaModel")
 except ImportError as e:
-    logger.debug(f"Qwen3_2507_ThinkingModel 로드 실패 (의존성 누락): {e}")
-
-try:
-    from .qwen3_2507_instruct_model import Qwen3_2507InstructModel
-
-    __all__.append("Qwen3_2507InstructModel")
-except ImportError as e:
-    logger.debug(f"Qwen3_2507_InstructModel 로드 실패 (의존성 누락): {e}")
+    logger.debug(f"Qwen3_2507OllamaModel 로드 실패 (의존성 누락): {e}")
 
 # HuggingFace/PyTorch 기반 모델 (torch 필요)
 try:

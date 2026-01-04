@@ -47,7 +47,7 @@ dataset:
 
 # 모델 설정
 model:
-  type: qwen3-2507_ollama
+  type: Qwen3-2507_ollama
 
   # variant: 모델 종류 구분 (thinking / instruct)
   # - 코드 로직에서 모델별 기본값 적용에 사용

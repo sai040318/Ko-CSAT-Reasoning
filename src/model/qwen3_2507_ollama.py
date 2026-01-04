@@ -67,26 +67,26 @@ logger = get_logger(__name__)
 # ===========================================
 VALID_OPTIONS: Set[str] = {
     # 컨텍스트/생성 제어
-    "num_ctx",        # 컨텍스트 윈도우 크기 (기본 2048)
-    "num_predict",    # 최대 생성 토큰 수 (-1: 무제한, -2: 컨텍스트 채우기)
-    "num_batch",      # 배치 크기
+    "num_ctx",  # 컨텍스트 윈도우 크기 (기본 2048)
+    "num_predict",  # 최대 생성 토큰 수 (-1: 무제한, -2: 컨텍스트 채우기)
+    "num_batch",  # 배치 크기
     # 샘플링
-    "temperature",    # 창의성 (기본 0.8, 높을수록 창의적)
-    "top_p",          # 누적 확률 기반 샘플링 (기본 0.9)
-    "top_k",          # 상위 k개 토큰만 고려 (기본 40)
-    "min_p",          # 최소 확률 임계값 (기본 0.0)
+    "temperature",  # 창의성 (기본 0.8, 높을수록 창의적)
+    "top_p",  # 누적 확률 기반 샘플링 (기본 0.9)
+    "top_k",  # 상위 k개 토큰만 고려 (기본 40)
+    "min_p",  # 최소 확률 임계값 (기본 0.0)
     # 반복 제어
-    "repeat_penalty",     # 반복 페널티 (기본 1.1)
-    "repeat_last_n",      # 반복 체크 범위 (기본 64)
-    "presence_penalty",   # 존재 페널티 (0.0~2.0)
+    "repeat_penalty",  # 반복 페널티 (기본 1.1)
+    "repeat_last_n",  # 반복 체크 범위 (기본 64)
+    "presence_penalty",  # 존재 페널티 (0.0~2.0)
     "frequency_penalty",  # 빈도 페널티
     # 재현성
-    "seed",           # 재현성을 위한 시드 (0: 랜덤)
-    "stop",           # 생성 중단 시퀀스
+    "seed",  # 재현성을 위한 시드 (0: 랜덤)
+    "stop",  # 생성 중단 시퀀스
     # 고급 (Mirostat)
-    "mirostat",       # Mirostat 알고리즘 (0: off, 1: v1, 2: v2)
-    "mirostat_tau",   # Mirostat 타우값
-    "mirostat_eta",   # Mirostat 에타값
+    "mirostat",  # Mirostat 알고리즘 (0: off, 1: v1, 2: v2)
+    "mirostat_tau",  # Mirostat 타우값
+    "mirostat_eta",  # Mirostat 에타값
 }
 
 
@@ -109,7 +109,7 @@ class AnswerWithReasoning(BaseModel):
 # ===========================================
 # Qwen3-2507 통합 Ollama 모델
 # ===========================================
-@MODEL_REGISTRY.register("qwen3-2507_ollama")
+@MODEL_REGISTRY.register("Qwen3-2507_ollama")
 class Qwen3_2507OllamaModel(BaseModelABC):
     """
     통합 Qwen3-2507 Ollama 모델.
