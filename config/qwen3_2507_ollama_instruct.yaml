@@ -57,7 +57,7 @@ ollama:
 
   options:
     # Instruct 모델은 3k+ 면 충분
-    num_ctx: 4096
+    num_ctx: 8192
     num_predict: -1
 
     # Qwen3-2507 Instruct 권장값
@@ -76,5 +76,5 @@ prompt:
 
 # 추론 설정
 inference:
-  test_dataset_path: data/test.csv
+  test_dataset_path: data_augmented_1_0_0/train_augmented.csv
   output_path: outputs
