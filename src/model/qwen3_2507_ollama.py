@@ -44,17 +44,19 @@ Qwen3-2507 Ollama 통합 모델 모듈.
 """
 
 import logging
+import math
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from datasets import Dataset
 from tqdm import tqdm
 from pydantic import BaseModel, Field
 from typing import Literal
 
 from ollama import generate
+from typing import Sequence
 
 from src.model.base_model import BaseModel as BaseModelABC
 from src.utils.registry import MODEL_REGISTRY
@@ -97,10 +99,6 @@ VALID_OPTIONS: Set[str] = {
     # 재현성
     "seed",  # 재현성을 위한 시드 (0: 랜덤)
     "stop",  # 생성 중단 시퀀스
-    # 고급 (Mirostat)
-    "mirostat",  # Mirostat 알고리즘 (0: off, 1: v1, 2: v2)
-    "mirostat_tau",  # Mirostat 타우값
-    "mirostat_eta",  # Mirostat 에타값
 }
 
 
@@ -150,7 +148,6 @@ class Qwen3_2507OllamaModel(BaseModelABC):
         "top_p",
         "top_k",
         "min_p",
-        "presence_penalty",
         "seed",
     }
 
@@ -343,21 +340,30 @@ class Qwen3_2507OllamaModel(BaseModelABC):
         # messages에서 system과 prompt 분리
         system_msg = ""
         prompt_msg = ""
+        assistant_msg = ""
         for msg in messages:
             if msg["role"] == "system":
                 system_msg = msg["content"]
             elif msg["role"] == "user":
                 prompt_msg = msg["content"]
+            elif msg["role"] == "assistant":
+                assistant_msg = msg["content"]
 
-        if counter % 20 == 0:
-            logger.debug(f"[{row['id']}] System: {system_msg[:100]}...")
-            logger.debug(f"[{row['id']}] Prompt: {prompt_msg[:200]}...")
+        if counter % 10 == 0:
+            file_logger.debug(f"[{row['id']}] System: {system_msg}...")
+            file_logger.debug(f"[{row['id']}] Prompt front: {prompt_msg[:500]}...")
+            file_logger.debug(f"[{row['id']}] Prompt end: {prompt_msg[-500:]}...")
+            file_logger.debug(f"[{row['id']}] Assistant: {assistant_msg[:500]}...")
 
         # TODO response 항목 반드시 로그로 출력해보기
         # Ollama generate() 호출
         if use_structured:
             # Structured Output 사용 - JSON 스키마 강제
             # [참고] GBNF grammar + logit masking으로 {"answer": 1~5} 형태만 출력
+
+            file_logger.error(f"\nstructured output은 현재 thinking을 지원하지 않는 버그가 있습니다\n")
+            raise NotImplementedError("Ollama structured output은 현재 think 모드에서 지원되지 않습니다.")
+
             response = generate(
                 model=model_name,
                 prompt=prompt_msg,
@@ -383,11 +389,23 @@ class Qwen3_2507OllamaModel(BaseModelABC):
 
         else:
             # 일반 텍스트 응답
+            # response = chat(
+            #     model=model_name,
+            #     messages=messages,
+            #     stream=False,
+            #     # logprobs=False,
+            #     # top_log_probs=10,
+            #     options=options,
+            # )
+
+            use_log_probs = False
             response = generate(
                 model=model_name,
                 prompt=prompt_msg,
                 system=system_msg,
                 think=use_think,
+                logprobs=use_log_probs,
+                top_logprobs=10,
                 stream=False,
                 options=options,
             )
@@ -396,37 +414,66 @@ class Qwen3_2507OllamaModel(BaseModelABC):
             file_logger.debug("==========================================================")
             file_logger.debug(f" Generated non structured output.\n\n")
             file_logger.debug(f" respone type: {type(response)}\n\n")
-            file_logger.debug(f" response.response: {response.response}...\n\n")
+            file_logger.debug(f" response.response: {response.response} is answer\n\n")
             file_logger.debug(f" response.thinking: {response.thinking}\n\n")
-            file_logger.debug(f" response.logprobs: {response.logprobs}\n\n")
+            if use_log_probs and response.logprobs:
+                self._log_answer_confidence(row["id"], response.logprobs, file_logger)
 
             # 텍스트에서 숫자 추출
             answer = self._parse_answer_from_text(response.response)
 
-        # 디버그 로깅 (thinking 내용)
-        if use_think and hasattr(response, "thinking") and response.thinking:
-            logger.debug(f"[{row['id']}] Thinking: {response.thinking[:200]}...")
-
         return answer
+
+    def _log_answer_confidence(self, row_id: str, logprobs: list, logger):
+        """마지막 정답 토큰에서 각 선지(1-5)의 confidence 추출 및 로깅"""
+        ANSWER_TOKENS = {"1", "2", "3", "4", "5"}
+
+        # 마지막 토큰에서 top_logprobs 추출
+        last_logprob = logprobs[-1] if logprobs else None
+        if not last_logprob or not last_logprob.top_logprobs:
+            logger.debug(f"[{row_id}] No logprobs available for answer token")
+            return
+
+        # 각 선지별 confidence 계산
+        confidences = {}
+        for token_info in last_logprob.top_logprobs:
+            token = token_info.token.strip()
+            if token in ANSWER_TOKENS:
+                confidences[token] = math.exp(token_info.logprob) * 100
+
+        # 선택된 정답 토큰
+        selected = last_logprob.token.strip()
+        selected_prob = math.exp(last_logprob.logprob) * 100
+
+        # 로깅 출력
+        logger.debug(f"[{row_id}] Answer Confidence:")
+        logger.debug(f"  Selected: {selected} ({selected_prob:.2f}%)")
+        logger.debug(f"  All choices: " + " | ".join(f"{k}: {v:.2f}%" for k, v in sorted(confidences.items())))
+
+    def _decode_tokens(self, tokens: Sequence[int]) -> List[str]:
+        pass  # TODO: 구현 필요
 
     def _parse_answer_from_text(self, text: str) -> int:
         """텍스트 응답에서 정답 숫자 추출"""
         text = text.strip()
 
         # 숫자만 있는 경우
-        logger.debug(f"text received for parsing: {text}")
+        file_logger.debug(f"text received for parsing: {text}")
         if text in ["1", "2", "3", "4", "5"]:
-            logger.debug(f"Parsed answer directly: {text}")
+            file_logger.debug(f"Parsed answer directly: {text}")
+            # logger.debug(f"Parsed answer directly: {text}")
             return int(text)
 
         # 정규식으로 숫자 추출
         match = re.search(r"[1-5]", text)
         if match:
-            logger.debug(f"Parsed answer from regex: {match.group()}")
+            file_logger.warning(f"Parsed answer from regex: {match.group()}")
+            # logger.debug(f"Parsed answer from regex: {match.group()}")
             return int(match.group())
 
         # 파싱 실패 시 기본값
-        logger.warning(f"Failed to parse answer from: {text[:100]}")
+        # logger.error(f"Failed to parse answer from: {text[:100]}")
+        file_logger.error(f"Failed to parse answer from: {text[:100]}")
         return 1
 
     def save_model(self, save_path: str):
