@@ -21,6 +21,7 @@ import src.model  # noqa: F401
 import src.data  # noqa: F401 
 
 from src.rag.rag_pipeline import RAGPipeline, HistoryClassifier
+from src.retrieval import EnsembleRetriever
 
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
@@ -55,6 +56,41 @@ def main(cfg: DictConfig):
 
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
+
+        # =================================================================
+        # RAG 적용 (train 모드)
+        # =================================================================
+        if cfg.get("rag", {}).get("use", False):
+            print("[Train Mode] RAG Pipeline 활성화: 학습 데이터에 문서를 검색하여 주입합니다.")
+            from datasets import Dataset as HFDataset
+
+            history_classifier = HistoryClassifier(model.model, tokenizer)
+            retriever = EnsembleRetriever(
+                corpus_path="src/corpus/corpus.json",
+                bm25_k=cfg.rag.get("bm25_k", 10),
+                vec_k=cfg.rag.get("vec_k", 10),
+                top_k=cfg.rag.get("top_k", 5),
+                weight_bm25=cfg.rag.get("weight_bm25", 0.5),
+                weight_vec=cfg.rag.get("weight_vec", 0.5),
+            )
+            rag_pipeline = RAGPipeline(
+                corpus_path="src/corpus/corpus.json",
+                top_k=cfg.rag.get("top_k", 5),
+                retriever=retriever,
+            )
+
+            # BaselineDataset 구조상 self.dataset["train"]에 데이터가 있음
+            df_raw = dataset.dataset["train"].to_pandas()
+            df_with_docs = rag_pipeline.add_documents_to_df(df_raw, history_classifier)
+            df_with_docs["paragraph"] = df_with_docs.apply(
+                lambda r: f"### 참고 문서 (Background Knowledge)\n{r['documents']}\n\n---\n### 문제 지문\n{r['paragraph']}"
+                if pd.notna(r["documents"]) and r["documents"]
+                else r["paragraph"],
+                axis=1,
+            )
+            dataset.dataset["train"] = HFDataset.from_pandas(df_with_docs)
+            print("학습 데이터 RAG 주입 완료")
+        # =================================================================
 
         # Dataset 로드 및 전처리
         processed_dataset = dataset.preprocess(
@@ -129,7 +165,42 @@ def main(cfg: DictConfig):
 
         ### RAG부분 ###
         history_classifier = HistoryClassifier(model.model, tokenizer)
-        rag_pipeline = RAGPipeline(corpus_path="./corpus")
+        # rag 설정이 있고 use가 True일 때만 retriever 주입
+        if cfg.get("rag", {}).get("use", False):
+            retriever = EnsembleRetriever(
+                corpus_path="src/corpus/corpus.json",
+                bm25_k=cfg.rag.get("bm25_k", 10),
+                vec_k=cfg.rag.get("vec_k", 10),
+                top_k=cfg.rag.get("top_k", 5),
+                weight_bm25=cfg.rag.get("weight_bm25", 0.5),
+                weight_vec=cfg.rag.get("weight_vec", 0.5),
+            )
+            rag_pipeline = RAGPipeline(
+                corpus_path="src/corpus/corpus.json",
+                top_k=cfg.rag.get("top_k", 5),
+                retriever=retriever,
+            )
+
+            # 🔌 RAG 컨텍스트를 paragraph에 미리 주입
+            # BaselineDataset은 self.dataset을 활용하므로, preprocess 전에 dataframe을 수정한다.
+            from datasets import Dataset
+
+            df_raw = test_dataset.dataset["train"].to_pandas()
+            df_with_docs = rag_pipeline.add_documents_to_df(df_raw, history_classifier)
+            df_with_docs["paragraph"] = df_with_docs.apply(
+                lambda r: f"### 참고 문서 (Background Knowledge)\n{r['documents']}\n\n---\n### 문제 지문\n{r['paragraph']}"
+                if pd.notna(r["documents"]) and r["documents"]
+                else r["paragraph"],
+                axis=1,
+            )
+            # Dataset으로 되돌려 세팅
+            test_dataset.dataset = Dataset.from_pandas(df_with_docs)
+        else:
+            rag_pipeline = RAGPipeline(
+                corpus_path="src/corpus/corpus.json",
+                top_k=cfg.get("rag", {}).get("top_k", 5),
+                retriever=None,
+            )
 
         test_dataset.extra_columns["mode"] = cfg.mode
         test_dataset.extra_columns["history_classifier"] = history_classifier

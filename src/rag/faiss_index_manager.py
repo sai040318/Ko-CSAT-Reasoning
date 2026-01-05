@@ -12,6 +12,32 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 
+def _build_augmented_text(item: Dict[str, Any]) -> str:
+    """search_text에 title/aliases/rag_matching_keywords(quotes, related_terms)을 덧붙여 검색 텍스트 생성."""
+    parts: List[str] = []
+    search_text = item.get("search_text", "")
+    if search_text:
+        parts.append(str(search_text))
+
+    title = item.get("title")
+    if title:
+        parts.append(str(title))
+
+    aliases = item.get("aliases", [])
+    if aliases:
+        parts.extend([str(a) for a in aliases])
+
+    keywords = item.get("rag_matching_keywords", {}) or {}
+    quotes = keywords.get("quotes", [])
+    related_terms = keywords.get("related_terms", [])
+    if quotes:
+        parts.extend([str(q) for q in quotes])
+    if related_terms:
+        parts.extend([str(t) for t in related_terms])
+
+    return " ".join(parts).strip()
+
+
 def _content_dict_to_markdown(content: Dict[str, Any]) -> str:
     """content 딕셔너리를 간단한 Markdown 문자열로 변환합니다."""
     lines: List[str] = []
@@ -44,7 +70,8 @@ def load_corpus_documents(corpus_path: str = "src/corpus/corpus.json") -> List[D
             "rag_matching_keywords": item.get("rag_matching_keywords", {}),
             "full_content": _content_dict_to_markdown(item.get("content", {})),
         }
-        doc = Document(page_content=item.get("search_text", ""), metadata=metadata)
+        augmented_text = _build_augmented_text(item)
+        doc = Document(page_content=augmented_text, metadata=metadata)
         documents.append(doc)
 
     return documents

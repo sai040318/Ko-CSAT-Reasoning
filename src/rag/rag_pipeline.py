@@ -2,7 +2,7 @@ import torch
 import pandas as pd
 from ast import literal_eval
 from tqdm import tqdm
-from unsloth import FastLanguageModel
+from src.retrieval import EnsembleRetriever
 
 # =====================================================
 # HistoryClassifier (2-stage LLM Gate)
@@ -52,8 +52,8 @@ class HistoryClassifier:
         다음 문제는 한국사 문제인가?
 
         판단 기준:
-        - 한국의 역사적 사건, 인물, 제도, 시기 → 한국사
-        - 그 외 세계사, 과학, 일반상식 등 → 비한국사
+        - 질문이 한국의 역사적 인물·사건·단체·제도·사상의 정체나 사실을 묻으면 한국사
+        - 지문에 한국사 소재가 있어도, 지문 내용만 확인하는 독해 문제면 비한국사
 
         문제:
         {paragraph}
@@ -64,11 +64,10 @@ class HistoryClassifier:
         선택지:
         {choices_str if choices_str else '없음'}
 
-        판단:
         A = 한국사
         B = 비한국사
 
-        출력은 반드시 A 또는 B 한 글자.
+        출력은 A 또는 B
         출력:"""
         return self._infer_AB(prompt) == "A"
 
@@ -83,18 +82,17 @@ class HistoryClassifier:
         prompt = f"""
         다음은 한국사 문제이다.
 
-        당신의 임무는 선택지 중 하나가 paragraph 안에
-        직접적으로 등장하는지 여부만 판단하는 것이다.
+        당신의 임무는 paragraph 안에 정답을 선택할 수 있는 '근거 문장'이 존재하는지 여부를 판단하는 것이다.
 
         중요 규칙:
         - 추론 금지
         - 상식 사용 금지
         - 의미 유추 금지
-        - 실제로 등장한 표현만 인정
+        - paragraph에 없는 정보를 알고 있어야만 정답을 고를 수 있다면 외부 문서가 필요하다고 판단한다.
 
         판단:
-        A = 선택지 중 어느 것도 paragraph에 명시적으로 등장하지 않음
-        B = 선택지 중 하나 이상이 paragraph에 명시적으로 등장함
+        A = paragraph에 정답의 근거가 없음 (외부 문서 필요)
+        B = paragraph에 정답의 근거가 있음 (외부 문서 불필요)
 
         paragraph:
         {paragraph}
@@ -125,13 +123,47 @@ class HistoryClassifier:
 # =====================================================
 # RAGPipeline
 # =====================================================
+
+
 class RAGPipeline:
-    def __init__(self, corpus_path: str):
+    def __init__(
+        self,
+        corpus_path: str,
+        top_k: int = 5,
+        retriever: EnsembleRetriever | None = None,
+    ):
         self.corpus_path = corpus_path
+        self.top_k = top_k
+        # 외부에서 주입한 리트리버 사용
+        self.retriever = retriever
 
     def retrieve_from_corpus(self, paragraph: str, question: str, choices: list) -> str:
-        # 실제 검색 로직으로 교체
-        return "임시 문서"
+        """
+        지문+질문으로 앙상블 검색을 수행하고, 컨텍스트 문자열을 반환.
+        컨텍스트는 [doc_id] title\ncontent 형태로 구성됩니다.
+        """
+        if self.retriever is None:
+            raise ValueError("RAGPipeline.retriever가 설정되어 있지 않습니다.")
+
+        query = f"{paragraph}\n{question}".strip()
+
+        results = self.retriever.retrieve(query, top_k=self.top_k)
+
+        contexts = []
+        for idx, r in enumerate(results, start=1):
+            doc_id = r.get("doc_id", "")
+            title = r.get("title", "")
+            meta = r.get("metadata") or {}
+            content = meta.get("full_content") or r.get("content", "")
+            contexts.append(f"[문서 {idx}] id={doc_id} | title={title}\n{content}")
+
+        preface = (
+            "아래는 문제 해결을 위해 검색된 배경지식(참고 문서 5건)입니다. "
+            "이 문서들에는 정답과 관련된 핵심 정보뿐만 아니라 관련 없는 내용(노이즈)도 섞여 있습니다. "
+            "반드시 **문맥에 맞는 정보만 선별**하여 정답을 추론하세요.\n\n"
+        )
+
+        return preface + "\n\n".join(contexts)
 
     def add_documents_to_df(self, df: pd.DataFrame, history_classifier: HistoryClassifier) -> pd.DataFrame:
         documents = []
@@ -158,8 +190,9 @@ class RAGPipeline:
 
 
 if __name__ == "__main__":
-    print("✅ Unsloth 모델 로딩 중...")
+    from unsloth import FastLanguageModel
 
+    print("✅ Unsloth 모델 로딩 중...")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name="unsloth/Qwen2.5-32B-Instruct-bnb-4bit",
         max_seq_length=3072,
@@ -167,13 +200,12 @@ if __name__ == "__main__":
         dtype=torch.float16,
     )
     FastLanguageModel.for_inference(model)
-
     history_classifier = HistoryClassifier(model, tokenizer)
 
-    data_path = "data/train.csv"
+    data_path = "src/data/train.csv"
     df = pd.read_csv(data_path)
-
-    rag = RAGPipeline(corpus_path="./corpus")
+    retriever = EnsembleRetriever(top_k=5)
+    rag = RAGPipeline(corpus_path="src/corpus/corpus.json", retriever=retriever)
     df_with_docs = rag.add_documents_to_df(df, history_classifier)
 
     out_csv_path = "data/self_instruct_with_documents22.csv"
