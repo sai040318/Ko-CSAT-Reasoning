@@ -6,6 +6,7 @@ Train 데이터에 대한 모델 추론 결과 Error Case Analysis 및 Scoring
 
 import pandas as pd
 import numpy as np
+import date
 from ast import literal_eval
 from sklearn.metrics import f1_score, classification_report, confusion_matrix
 import warnings
@@ -255,7 +256,9 @@ def main():
 
     # 9. 에러 케이스를 CSV로 저장
     error_df = pd.DataFrame(errors)
-    error_output_path = "/data/ephemeral/home/kdh/outputs/qwen3_2507_thinking_train_0102_221623/error_cases.csv"
+    # error_output_path = "/data/ephemeral/home/kdh/outputs/qwen3_2507_thinking_train_0102_221623/error_cases.csv"
+    time_stamp = date.now().strftime("%m%d_%H%M%S")
+    error_output_path = f"/data/ephemeral/home/kdh/error_cases_{time_stamp}.csv"
     error_df.to_csv(error_output_path, index=False)
     print(f"\n에러 케이스가 저장되었습니다: {error_output_path}")
 
