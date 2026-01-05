@@ -70,7 +70,7 @@ ollama:
 
   # Structured Output 사용 (1-5만 출력하도록 강제)
   # [참고] GBNF grammar + logit masking으로 {"answer": 1~5} 형태만 출력
-  use_structured: false
+  use_structured: true
 
   # https://github.com/ollama/ollama/blob/main/docs/modelfile.mdx#valid-parameters-and-values
   # 생성 파라미터 (options)
@@ -116,10 +116,7 @@ ollama:
     top_p: 0.8
     top_k: 20
     min_p: 0.0
-
-
-    # TODO 고급 옵션
-    # presence_penalty: 0.0 # 0.0 ~ 2.0
+    # presence_penalty: 0.0  # 0.0 ~ 2.0
 
     # === 추가 옵션 (실험용, 필요시 REQUIRED_OPTIONS에 추가) ===
     # repeat_penalty: 1.1    # 기본값 1.1, 필요시 조정

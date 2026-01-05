@@ -58,16 +58,15 @@ ollama:
   # TODO think는 structured output에서 동작 안함
   
   think: true
-  # use_structured: true
   use_structured: false
 
   options:
     # V100 32GB - 최대 컨텍스트 활용
     # thinking 모델은 추론 과정이 길어질 수 있으므로 큰 값 권장
     # num_ctx: 131072 # max는 256k
-    num_ctx: 20000 # max는 256k
+    num_ctx: 40786 # max는 256k
     # num_predict: -1  # 무제한 (thinking이 중간에 끊기지 않도록)
-    num_predict: 8192
+    num_predict: 32768
 
     # Qwen3-2507 Thinking 권장값
     # https://unsloth.ai/docs/models/qwen3-how-to-run-and-fine-tune/qwen3-2507
@@ -75,13 +74,13 @@ ollama:
     top_p: 0.95
     top_k: 20
     min_p: 0.0
-    presence_penalty: 0.0 # 0.0 ~ 2.0
+    # presence_penalty: 0.0 # 0.0 ~ 2.0
 
     seed: 42
 
 # 프롬프트 템플릿 설정
 prompt:
-  name: qwen3_2507_base
+  name: qwen3_2507_thinking_use_type
 
 # 추론 설정
 inference:
