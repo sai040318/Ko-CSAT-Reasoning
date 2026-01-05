@@ -111,9 +111,6 @@ class OllamaPromptBuilder:
 
         messages = self._parse_chat_template(filled)
 
-        if answer is not None and answer != "":
-            messages.append({"role": "assistant", "content": str(answer)})
-
         return messages
 
     # def build_batch(self, examples: dict) -> list[list[dict]]:
