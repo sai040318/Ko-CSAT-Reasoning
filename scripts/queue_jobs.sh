@@ -24,7 +24,7 @@ for yaml_path in "$@"; do
 
     # tsp로 작업을 등록하면서 해당 작업의 ID를 변수에 저장합니다.
     # PYTHONUNBUFFERED=1을 넣어야 실시간으로 로그 파일에 기록됩니다.
-    job_id=$(tsp bash -c "export PYTHONUNBUFFERED=1; time uv run run_inference.py --config-name=$yaml_name 2>&1 | tr -d '\r' | tee logs/${yaml_name}.log")
+    job_id=$(tsp bash -c "export PYTHONUNBUFFERED=1; uv run run_inference.py --config-name=$yaml_name")
     
     echo "Added to Queue: $yaml_name (ID: $job_id, Log: logs/${yaml_name}.log)"
 done

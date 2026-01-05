@@ -350,10 +350,10 @@ class Qwen3_2507OllamaModel(BaseModelABC):
                 assistant_msg = msg["content"]
 
         if counter % 10 == 0:
-            file_logger.debug(f"[{row['id']}] System: {system_msg}...")
-            file_logger.debug(f"[{row['id']}] Prompt front: {prompt_msg[:500]}...")
-            file_logger.debug(f"[{row['id']}] Prompt end: {prompt_msg[-500:]}...")
-            file_logger.debug(f"[{row['id']}] Assistant: {assistant_msg[:500]}...")
+            file_logger.debug(f"[{row['id']}] System: {system_msg} ---")
+            file_logger.debug(f"[{row['id']}] Prompt front: {prompt_msg[:500]} ---")
+            file_logger.debug(f"[{row['id']}] Prompt end: {prompt_msg[-500:]} ---")
+            file_logger.debug(f"[{row['id']}] Assistant: {assistant_msg[:500]} ---")
 
         # TODO response 항목 반드시 로그로 출력해보기
         # Ollama generate() 호출
