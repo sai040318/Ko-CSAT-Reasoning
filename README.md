@@ -27,7 +27,7 @@
 - 협업 : Github, Notion, Slack
 
 ## 📆 타임 라인
-사진 자리
+![타임라인](asset/timeline.PNG)
 
 ## 📃 주요 구현 기능
 ### SFT
@@ -65,23 +65,26 @@ hard voting 진행
 
 ## 실행 방법
 ````
-# 1. 데이터 전처리
+# 1. 가상환경 설치
+uv pip install -r requirements.txt
+
+# 2. 데이터 전처리
 python src/data/data_shuffle.py
 
-# 2. corpus 구축
+# 3. corpus 구축
 python 
 
-# 3-1. 학습 실행
+# 4-1. 학습 실행
 python src/run.py mode=train
 
-# 3-2. 평가 실행
+# 4-2. 평가 실행
 python src/run.py mode=evaluate
 
-# 3-3. 추론 실행
+# 4-3. 추론 실행
 python src/run.py mode=inference
 
-# 4. 앙상블 진행
-python 
+# 5. 앙상블 진행
+python src/ensemble/hard_voting.py
 ````
 ## 📁 파일 구조
 ````
