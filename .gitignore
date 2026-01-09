@@ -23,6 +23,7 @@ logs/
 **/logs/
 **/*.ipynb_checkpoints
 *.ipynb
+*.log
 
 # ===== Unsloth artifacts =====
 **/unsloth_compiled_cache/
@@ -32,6 +33,7 @@ logs/
 COMPETITION_GUIDE.md
 AGENTS.md
 stdout_stderr_redirect.md
+ollama_modelfile.mdx
 
 # ===== uv env =====
 **/sota_inference.egg-info/

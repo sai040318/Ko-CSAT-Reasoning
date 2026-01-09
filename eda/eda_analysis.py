@@ -17,14 +17,13 @@
 #
 # - **목표**: 수능형 문제(국어/사회) 정답 예측 (1~5 중 택1)
 # - **평가**: Macro F1-score
-# - **데이터**: train 2,031개 / test 869개
+# - **데이터**: Train 데이터 분석 (Test 데이터 분석 제외)
 
 # %% [markdown]
 # ## 0. 설정 및 라이브러리 임포트
 
 # %%
 # === 설정 ===
-ANALYZE_TEST_LABELS = False  # True로 변경 시 test 정답 분포/비교 분석 포함
 DATA_DIR = "/data/ephemeral/home/kdh/data"
 QWEN3_MODEL = "Qwen/Qwen3-4B"  # 토크나이저용 (작은 모델로 토크나이저만 사용)
 
@@ -56,10 +55,8 @@ print("라이브러리 로드 완료")
 # %%
 # 데이터 로드
 train_df = pd.read_csv(f"{DATA_DIR}/train.csv")
-test_df = pd.read_csv(f"{DATA_DIR}/test.csv")
 
 print(f"Train shape: {train_df.shape}")
-print(f"Test shape: {test_df.shape}")
 
 # %%
 # problems 컬럼 파싱 함수
@@ -99,7 +96,6 @@ def expand_problems(df: pd.DataFrame) -> pd.DataFrame:
 # %%
 # 데이터 확장
 train_df = expand_problems(train_df)
-test_df = expand_problems(test_df)
 
 print("=== Train 샘플 ===")
 print(train_df[['id', 'question', 'num_choices', 'answer', 'has_question_plus']].head())
@@ -109,8 +105,6 @@ print(train_df[['id', 'question', 'num_choices', 'answer', 'has_question_plus']]
 print("\n=== 파싱 결과 확인 ===")
 print(f"Train - question 비어있는 행: {(train_df['question'] == '').sum()}")
 print(f"Train - choices 비어있는 행: {(train_df['num_choices'] == 0).sum()}")
-print(f"Test - question 비어있는 행: {(test_df['question'] == '').sum()}")
-print(f"Test - choices 비어있는 행: {(test_df['num_choices'] == 0).sum()}")
 
 # %% [markdown]
 # ## 2. 기본 정보
@@ -120,12 +114,6 @@ print("=== Train 기본 정보 ===")
 print(train_df.info())
 print("\n=== Null 값 확인 ===")
 print(train_df.isnull().sum())
-
-# %%
-print("\n=== Test 기본 정보 ===")
-print(test_df.info())
-print("\n=== Null 값 확인 ===")
-print(test_df.isnull().sum())
 
 # %%
 # 샘플 데이터 확인
@@ -165,17 +153,12 @@ def calc_text_lengths(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 train_df = calc_text_lengths(train_df)
-test_df = calc_text_lengths(test_df)
 
 # %%
 # 길이 통계
 print("=== Train 텍스트 길이 통계 (문자 수) ===")
 length_cols = ['paragraph_len', 'question_len', 'choices_len', 'question_plus_len', 'total_len']
 print(train_df[length_cols].describe())
-
-# %%
-print("\n=== Test 텍스트 길이 통계 (문자 수) ===")
-print(test_df[length_cols].describe())
 
 # %%
 # 길이 분포 시각화
@@ -185,12 +168,10 @@ for idx, col in enumerate(length_cols):
     ax = axes[idx // 3, idx % 3]
 
     # Train
-    ax.hist(train_df[col], bins=50, alpha=0.7, label='Train', color='blue')
-    ax.hist(test_df[col], bins=50, alpha=0.5, label='Test', color='orange')
+    ax.hist(train_df[col], bins=50, alpha=0.7, color='blue')
     ax.set_title(f'{col} Distribution')
     ax.set_xlabel('Length (chars)')
     ax.set_ylabel('Count')
-    ax.legend()
 
 # 마지막 subplot 숨기기
 axes[1, 2].axis('off')
@@ -237,12 +218,6 @@ train_df['choices_tokens'] = train_df['choices'].apply(lambda x: sum(count_token
 train_df['question_plus_tokens'] = train_df['question_plus'].fillna('').apply(count_tokens)
 train_df['total_tokens'] = train_df['paragraph_tokens'] + train_df['question_tokens'] + train_df['choices_tokens'] + train_df['question_plus_tokens']
 
-test_df['paragraph_tokens'] = test_df['paragraph'].fillna('').apply(count_tokens)
-test_df['question_tokens'] = test_df['question'].fillna('').apply(count_tokens)
-test_df['choices_tokens'] = test_df['choices'].apply(lambda x: sum(count_tokens(c) for c in x) if x else 0)
-test_df['question_plus_tokens'] = test_df['question_plus'].fillna('').apply(count_tokens)
-test_df['total_tokens'] = test_df['paragraph_tokens'] + test_df['question_tokens'] + test_df['choices_tokens'] + test_df['question_plus_tokens']
-
 print("토큰 수 계산 완료")
 
 # %%
@@ -252,22 +227,16 @@ token_cols = ['paragraph_tokens', 'question_tokens', 'choices_tokens', 'question
 print(train_df[token_cols].describe())
 
 # %%
-print("\n=== Test 토큰 수 통계 (Qwen3) ===")
-print(test_df[token_cols].describe())
-
-# %%
 # 토큰 수 분포 시각화
 fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
 for idx, col in enumerate(token_cols):
     ax = axes[idx // 3, idx % 3]
 
-    ax.hist(train_df[col], bins=50, alpha=0.7, label='Train', color='blue')
-    ax.hist(test_df[col], bins=50, alpha=0.5, label='Test', color='orange')
+    ax.hist(train_df[col], bins=50, alpha=0.7, color='blue')
     ax.set_title(f'{col} Distribution')
     ax.set_xlabel('Tokens')
     ax.set_ylabel('Count')
-    ax.legend()
 
 axes[1, 2].axis('off')
 
@@ -280,8 +249,7 @@ plt.show()
 print("\n=== 긴 입력 분석 ===")
 for threshold in [1000, 2000, 4000, 8000]:
     train_count = (train_df['total_tokens'] > threshold).sum()
-    test_count = (test_df['total_tokens'] > threshold).sum()
-    print(f"총 토큰 > {threshold}: Train {train_count} ({train_count/len(train_df)*100:.1f}%), Test {test_count} ({test_count/len(test_df)*100:.1f}%)")
+    print(f"총 토큰 > {threshold}: Train {train_count} ({train_count/len(train_df)*100:.1f}%)")
 
 # %% [markdown]
 # ## 4. 정답 분포 분석
@@ -315,17 +283,6 @@ plt.tight_layout()
 plt.savefig(f"{DATA_DIR}/../eda/answer_distribution.png", dpi=150, bbox_inches='tight')
 plt.show()
 
-# %%
-# [옵션] Test 정답 분포 (ANALYZE_TEST_LABELS=True일 때만)
-if ANALYZE_TEST_LABELS:
-    print("\n=== Test 정답 분포 ===")
-    # test의 answer가 빈 문자열이 아닌 경우만
-    test_with_answer = test_df[test_df['answer'].notna() & (test_df['answer'] != '')]
-    if len(test_with_answer) > 0:
-        test_answer_dist = test_with_answer['answer'].value_counts().sort_index()
-        print(test_answer_dist)
-    else:
-        print("Test 데이터에 정답이 없습니다.")
 
 # %% [markdown]
 # ## 5. 선택지 분석
@@ -335,22 +292,19 @@ if ANALYZE_TEST_LABELS:
 print("=== 선택지 개수 분포 ===")
 print("\n[Train]")
 print(train_df['num_choices'].value_counts().sort_index())
-print("\n[Test]")
-print(test_df['num_choices'].value_counts().sort_index())
 
 # %%
 # 선택지 개수 시각화
-fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+fig, ax = plt.subplots(figsize=(8, 5))
 
-for ax, (name, df) in zip(axes, [('Train', train_df), ('Test', test_df)]):
-    counts = df['num_choices'].value_counts().sort_index()
-    ax.bar(counts.index.astype(str), counts.values, color='steelblue')
-    ax.set_xlabel('Number of Choices')
-    ax.set_ylabel('Count')
-    ax.set_title(f'{name} - Number of Choices Distribution')
+counts = train_df['num_choices'].value_counts().sort_index()
+ax.bar(counts.index.astype(str), counts.values, color='steelblue')
+ax.set_xlabel('Number of Choices')
+ax.set_ylabel('Count')
+ax.set_title('Train - Number of Choices Distribution')
 
-    for i, (idx, val) in enumerate(counts.items()):
-        ax.text(i, val + 5, f'{val}', ha='center', va='bottom')
+for i, (idx, val) in enumerate(counts.items()):
+    ax.text(i, val + 5, f'{val}', ha='center', va='bottom')
 
 plt.tight_layout()
 plt.savefig(f"{DATA_DIR}/../eda/num_choices_distribution.png", dpi=150, bbox_inches='tight')
@@ -377,15 +331,12 @@ def classify_choice_type(choices: List[str]) -> str:
         return 'general'  # 일반형
 
 train_df['choice_type'] = train_df['choices'].apply(classify_choice_type)
-test_df['choice_type'] = test_df['choices'].apply(classify_choice_type)
 
 # %%
 # 선택지 유형 분포
 print("=== 선택지 유형 분포 ===")
 print("\n[Train]")
 print(train_df['choice_type'].value_counts())
-print("\n[Test]")
-print(test_df['choice_type'].value_counts())
 
 # %%
 # 선택지 유형별 예시
@@ -474,9 +425,6 @@ def extract_question_type(question: str) -> str:
 train_df['has_negative'] = train_df['question'].apply(has_negative)
 train_df['question_type'] = train_df['question'].apply(extract_question_type)
 
-test_df['has_negative'] = test_df['question'].apply(has_negative)
-test_df['question_type'] = test_df['question'].apply(extract_question_type)
-
 # %%
 # 부정어 포함 문제 분포
 print("=== 부정어 포함 문제 분포 ===")
@@ -484,17 +432,11 @@ print("\n[Train]")
 print(train_df['has_negative'].value_counts())
 print(f"부정어 비율: {train_df['has_negative'].mean()*100:.1f}%")
 
-print("\n[Test]")
-print(test_df['has_negative'].value_counts())
-print(f"부정어 비율: {test_df['has_negative'].mean()*100:.1f}%")
-
 # %%
 # 문제 유형 분포
 print("\n=== 문제 유형 분포 ===")
 print("\n[Train]")
 print(train_df['question_type'].value_counts())
-print("\n[Test]")
-print(test_df['question_type'].value_counts())
 
 # %%
 # 부정어 문제 vs 긍정 문제 정답 분포 비교
@@ -567,30 +509,25 @@ def classify_topic(text: str) -> List[str]:
 # %%
 # 주제 분류 적용
 train_df['topics'] = train_df['paragraph'].apply(classify_topic)
-test_df['topics'] = test_df['paragraph'].apply(classify_topic)
 
 # 첫 번째 주제만 추출 (대표 주제)
 train_df['primary_topic'] = train_df['topics'].apply(lambda x: x[0])
-test_df['primary_topic'] = test_df['topics'].apply(lambda x: x[0])
 
 # %%
 # 주제 분포
 print("=== 주제 분포 ===")
 print("\n[Train]")
 print(train_df['primary_topic'].value_counts())
-print("\n[Test]")
-print(test_df['primary_topic'].value_counts())
 
 # %%
 # 시각화: 주제 분포
-fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+fig, ax = plt.subplots(figsize=(10, 6))
 
-for ax, (name, df) in zip(axes, [('Train', train_df), ('Test', test_df)]):
-    topic_counts = df['primary_topic'].value_counts()
-    ax.barh(topic_counts.index, topic_counts.values, color='mediumpurple')
-    ax.set_xlabel('Count')
-    ax.set_title(f'{name} - Topic Distribution')
-    ax.invert_yaxis()
+topic_counts = train_df['primary_topic'].value_counts()
+ax.barh(topic_counts.index, topic_counts.values, color='mediumpurple')
+ax.set_xlabel('Count')
+ax.set_title('Train - Topic Distribution')
+ax.invert_yaxis()
 
 plt.tight_layout()
 plt.savefig(f"{DATA_DIR}/../eda/topic_distribution.png", dpi=150, bbox_inches='tight')
@@ -750,48 +687,7 @@ MARKUP_PATTERNS = {
 print("\n=== 특수 마크업 패턴 분석 ===")
 for pattern_name, pattern in MARKUP_PATTERNS.items():
     train_count = train_df['paragraph'].apply(lambda x: bool(re.search(pattern, str(x)))).sum()
-    test_count = test_df['paragraph'].apply(lambda x: bool(re.search(pattern, str(x)))).sum()
-    print(f"{pattern_name}: Train {train_count}, Test {test_count}")
-
-# %% [markdown]
-# ## 9. Train vs Test 비교 (옵션)
-
-# %%
-if ANALYZE_TEST_LABELS:
-    print("=== Train vs Test 비교 분석 ===")
-
-    # 길이 분포 비교
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-
-    compare_cols = ['paragraph_len', 'question_len', 'total_tokens', 'num_choices']
-
-    for ax, col in zip(axes.flatten(), compare_cols):
-        ax.hist(train_df[col], bins=30, alpha=0.6, label='Train', color='blue', density=True)
-        ax.hist(test_df[col], bins=30, alpha=0.6, label='Test', color='orange', density=True)
-        ax.set_title(f'{col} Distribution Comparison')
-        ax.legend()
-
-    plt.tight_layout()
-    plt.savefig(f"{DATA_DIR}/../eda/train_test_comparison.png", dpi=150, bbox_inches='tight')
-    plt.show()
-
-    # 문제 유형 비교
-    print("\n=== 문제 유형 비교 ===")
-    train_types = train_df['question_type'].value_counts(normalize=True)
-    test_types = test_df['question_type'].value_counts(normalize=True)
-
-    comparison = pd.DataFrame({'Train': train_types, 'Test': test_types}).fillna(0)
-    print(comparison.round(3))
-
-    # 주제 분포 비교
-    print("\n=== 주제 분포 비교 ===")
-    train_topics = train_df['primary_topic'].value_counts(normalize=True)
-    test_topics = test_df['primary_topic'].value_counts(normalize=True)
-
-    topic_comparison = pd.DataFrame({'Train': train_topics, 'Test': test_topics}).fillna(0)
-    print(topic_comparison.round(3))
-else:
-    print("Test 분석 옵션이 비활성화되어 있습니다. ANALYZE_TEST_LABELS = True로 설정하세요.")
+    print(f"{pattern_name}: Train {train_count}")
 
 # %% [markdown]
 # ## 10. 모델 입력 관점 분석 (Qwen3)
@@ -850,9 +746,6 @@ print("전체 프롬프트 토큰 수 계산 중...")
 train_df['full_prompt'] = train_df.apply(build_prompt, axis=1)
 train_df['prompt_tokens'] = train_df['full_prompt'].apply(count_tokens)
 
-test_df['full_prompt'] = test_df.apply(build_prompt, axis=1)
-test_df['prompt_tokens'] = test_df['full_prompt'].apply(count_tokens)
-
 print("계산 완료")
 
 # %%
@@ -860,15 +753,12 @@ print("계산 완료")
 print("=== 프롬프트 토큰 수 통계 (Qwen3) ===")
 print("\n[Train]")
 print(train_df['prompt_tokens'].describe())
-print("\n[Test]")
-print(test_df['prompt_tokens'].describe())
 
 # %%
 # 프롬프트 토큰 수 분포 시각화
 fig, ax = plt.subplots(figsize=(12, 6))
 
-ax.hist(train_df['prompt_tokens'], bins=50, alpha=0.7, label='Train', color='blue')
-ax.hist(test_df['prompt_tokens'], bins=50, alpha=0.5, label='Test', color='orange')
+ax.hist(train_df['prompt_tokens'], bins=50, alpha=0.7, color='blue')
 ax.axvline(x=2048, color='red', linestyle='--', label='2K limit')
 ax.axvline(x=4096, color='green', linestyle='--', label='4K limit')
 ax.axvline(x=8192, color='purple', linestyle='--', label='8K limit')
@@ -886,8 +776,7 @@ plt.show()
 print("\n=== Context Limit별 커버리지 ===")
 for limit in [1024, 2048, 4096, 8192, 16384, 32768]:
     train_pct = (train_df['prompt_tokens'] <= limit).mean() * 100
-    test_pct = (test_df['prompt_tokens'] <= limit).mean() * 100
-    print(f"{limit:,} tokens: Train {train_pct:.1f}%, Test {test_pct:.1f}%")
+    print(f"{limit:,} tokens: Train {train_pct:.1f}%")
 
 # %%
 # question_plus 유무별 분석
@@ -917,31 +806,30 @@ print("=" * 60)
 print(f"""
 1. 데이터 크기
    - Train: {len(train_df):,}개
-   - Test: {len(test_df):,}개
 
 2. 텍스트 길이 (평균)
-   - Paragraph: Train {train_df['paragraph_len'].mean():.0f}자 / Test {test_df['paragraph_len'].mean():.0f}자
-   - Question: Train {train_df['question_len'].mean():.0f}자 / Test {test_df['question_len'].mean():.0f}자
-   - 전체 토큰: Train {train_df['total_tokens'].mean():.0f} / Test {test_df['total_tokens'].mean():.0f}
+   - Paragraph: Train {train_df['paragraph_len'].mean():.0f}자
+   - Question: Train {train_df['question_len'].mean():.0f}자
+   - 전체 토큰: Train {train_df['total_tokens'].mean():.0f}
 
 3. 정답 분포 (Train)
 {train_df['answer'].value_counts().sort_index().to_string()}
 
 4. 선택지
-   - 4지선다: Train {(train_df['num_choices']==4).sum()} / Test {(test_df['num_choices']==4).sum()}
-   - 5지선다: Train {(train_df['num_choices']==5).sum()} / Test {(test_df['num_choices']==5).sum()}
+   - 4지선다: Train {(train_df['num_choices']==4).sum()}
+   - 5지선다: Train {(train_df['num_choices']==5).sum()}
 
 5. 문제 유형
    - 부정어 문제: Train {train_df['has_negative'].sum()} ({train_df['has_negative'].mean()*100:.1f}%)
    - 합답형: Train {(train_df['choice_type']=='combination').sum()}
 
 6. 프롬프트 토큰 (Qwen3 기준)
-   - 평균: Train {train_df['prompt_tokens'].mean():.0f} / Test {test_df['prompt_tokens'].mean():.0f}
-   - 최대: Train {train_df['prompt_tokens'].max()} / Test {test_df['prompt_tokens'].max()}
-   - 4K 이하: Train {(train_df['prompt_tokens']<=4096).mean()*100:.1f}% / Test {(test_df['prompt_tokens']<=4096).mean()*100:.1f}%
+   - 평균: Train {train_df['prompt_tokens'].mean():.0f}
+   - 최대: Train {train_df['prompt_tokens'].max()}
+   - 4K 이하: Train {(train_df['prompt_tokens']<=4096).mean()*100:.1f}%
 
 7. question_plus 보기
-   - 있음: Train {train_df['has_question_plus'].sum()} / Test {test_df['has_question_plus'].sum()}
+   - 있음: Train {train_df['has_question_plus'].sum()}
 """)
 
 # %%
@@ -953,17 +841,17 @@ print(f"\n분석 결과 저장됨: {DATA_DIR}/../eda/train_analysis_summary.csv"
 
 # %% [markdown]
 # ---
-# **EDA 분석 완료**
+# **EDA 분석 완료 (Train 데이터만)**
 #
 # 생성된 파일:
-# - `text_length_distribution.png`
-# - `token_distribution.png`
-# - `answer_distribution.png`
-# - `num_choices_distribution.png`
-# - `choice_type_answer_dist.png`
-# - `negative_answer_dist.png`
-# - `topic_distribution.png`
-# - `tfidf_keywords.png`
-# - `wordcloud.png`
-# - `prompt_tokens_distribution.png`
-# - `train_analysis_summary.csv`
+# - `text_length_distribution.png` - Train 텍스트 길이 분포
+# - `token_distribution.png` - Train 토큰 수 분포
+# - `answer_distribution.png` - Train 정답 분포
+# - `num_choices_distribution.png` - Train 선택지 개수 분포
+# - `choice_type_answer_dist.png` - 선택지 유형별 정답 분포
+# - `negative_answer_dist.png` - 부정어 유무에 따른 정답 분포
+# - `topic_distribution.png` - Train 주제 분포
+# - `tfidf_keywords.png` - TF-IDF 키워드
+# - `wordcloud.png` - 워드클라우드
+# - `prompt_tokens_distribution.png` - Train 프롬프트 토큰 분포
+# - `train_analysis_summary.csv` - Train 분석 요약
