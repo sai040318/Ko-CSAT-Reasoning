@@ -72,7 +72,7 @@ uv pip install -r requirements.txt
 python src/data/data_shuffle.py
 
 # 3. corpus 구축
-python 
+python src/corpus/manage_corpus.py
 
 # 4-1. 학습 실행
 python src/run.py mode=train
@@ -133,6 +133,7 @@ main/
 ├── requirements.txt
 └── install.sh
 ````
+
 
 
 
