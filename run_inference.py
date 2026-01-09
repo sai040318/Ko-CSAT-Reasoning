@@ -23,7 +23,7 @@ logger = None
 
 # Hydra를 통해 설정 파일을 로드합니다.
 # config_path는 프로젝트 루트 기준으로 설정
-@hydra.main(version_base=None, config_path="config", config_name="qwen3_2507_ollama_base")
+@hydra.main(version_base=None, config_path="config", config_name="qwen3_2507_ollama_thinking1")
 def main(cfg: DictConfig):
     global logger
     # 타이머 시작
