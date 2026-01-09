@@ -83,8 +83,12 @@ python src/run.py mode=evaluate
 # 4-3. 추론 실행
 python src/run.py mode=inference
 
-# 5. 앙상블 진행
+# 4. 앙상블 진행
 python src/ensemble/hard_voting.py
+
+# 5. thinking 모델 실행
+(develop2-inference-only)
+uv run run_inference.py
 ````
 ## 📁 파일 구조
 ````
@@ -128,5 +132,6 @@ main/
 ├── requirements.txt
 └── install.sh
 ````
+
 
 
