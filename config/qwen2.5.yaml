@@ -48,19 +48,20 @@ model:
 # 학습 설정 (32B 모델 최적화)
 training:
   output_dir: output/unsloth_qwen2.5_32b
-  num_train_epochs: 2
-  per_device_train_batch_size: 1 # 32B 모델은 배치 1로 안정성 확보
+  num_train_epochs: 1
+  max_steps: 10
+  per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
-  gradient_accumulation_steps: 16 # Effective batch size = 16
-  learning_rate: 1e-4  # 큰 모델은 낮은 lr로 안정적 학습
-  lr_scheduler_type: "cosine"  # Cosine이 일반적으로 더 좋은 성능
-  warmup_ratio: 0.03   # 전체 step의 3% warmup
+  gradient_accumulation_steps: 1
+  learning_rate: 1e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
   weight_decay: 0.01
-  max_grad_norm: 1.0   # Gradient clipping으로 안정성 확보
-  logging_steps: 1   # 1 step마다 로그 출력
-  save_strategy: "epoch"
-  eval_strategy: "no"  
-  save_total_limit: 2
+  max_grad_norm: 1.0
+  logging_steps: 1
+  save_strategy: "no"
+  eval_strategy: "no"
+  save_total_limit: 1
   save_only_model: true
   fp16: true
   bf16: false
@@ -73,13 +74,18 @@ inference:
   batch_size: 1        # 추론도 배치 1로 안정성 확보
   test_dataset_path: data/test.csv
   model_load_path: output/unsloth_qwen2.5_32b
-  output_path: output/qwen2.5_32b_output.csv
+  output_path: output/qwen2.5_32b_output_1.csv
 
 # 평가 설정
 evaluate:
   model_load_path: output/unsloth_qwen2.5_32b
   eval_output_path: output/qwen2.5_shuffle_self_eval_results.csv
 
-# RAG 설정 (미사용)
+# RAG 설정
 rag:
-  use: false
+  use: false  #(Rag 사용시 true로 변경)
+  top_k: 3
+  bm25_k: 10
+  vec_k: 10
+  weight_bm25: 0.7
+  weight_vec: 0.3

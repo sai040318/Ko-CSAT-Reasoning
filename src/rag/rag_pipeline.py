@@ -3,7 +3,7 @@ import pandas as pd
 from ast import literal_eval
 from tqdm import tqdm
 from src.retrieval import EnsembleRetriever
-
+from unsloth import FastLanguageModel
 # =====================================================
 # HistoryClassifier (2-stage LLM Gate)
 # =====================================================
@@ -47,7 +47,6 @@ class HistoryClassifier:
         choices_str = ""
         if choices:
             choices_str = "\n".join([f"{i+1}. {c}" for i, c in enumerate(choices)])
-
         prompt = f"""
         다음 문제는 한국사 문제인가?
 
@@ -78,7 +77,6 @@ class HistoryClassifier:
         choices_str = ""
         if choices:
             choices_str = "\n".join([f"{i+1}. {c}" for i, c in enumerate(choices)])
-
         prompt = f"""
         다음은 한국사 문제이다.
 
@@ -129,41 +127,52 @@ class RAGPipeline:
     def __init__(
         self,
         corpus_path: str,
-        top_k: int = 5,
+        top_k: int = 3,
         retriever: EnsembleRetriever | None = None,
     ):
         self.corpus_path = corpus_path
         self.top_k = top_k
         # 외부에서 주입한 리트리버 사용
         self.retriever = retriever
-
     def retrieve_from_corpus(self, paragraph: str, question: str, choices: list) -> str:
-        """
-        지문+질문으로 앙상블 검색을 수행하고, 컨텍스트 문자열을 반환.
-        컨텍스트는 [doc_id] title\ncontent 형태로 구성됩니다.
-        """
-        if self.retriever is None:
-            raise ValueError("RAGPipeline.retriever가 설정되어 있지 않습니다.")
+            """
+            지문+질문으로 앙상블 검색을 수행하고, 구조화된 컨텍스트 문자열을 반환.
+            """
+            if self.retriever is None:
+                raise ValueError("RAGPipeline.retriever가 설정되어 있지 않습니다.")
 
-        query = f"{paragraph}\n{question}".strip()
+            # 1. 쿼리 생성
+            query = f"{paragraph}\n{question}".strip()
 
-        results = self.retriever.retrieve(query, top_k=self.top_k)
+            # 2. 검색 수행
+            results = self.retriever.retrieve(query, top_k=self.top_k)
 
-        contexts = []
-        for idx, r in enumerate(results, start=1):
-            doc_id = r.get("doc_id", "")
-            title = r.get("title", "")
-            meta = r.get("metadata") or {}
-            content = meta.get("full_content") or r.get("content", "")
-            contexts.append(f"[문서 {idx}] id={doc_id} | title={title}\n{content}")
+            contexts = []
+            for idx, r in enumerate(results, start=1):
+                title = r.get("title", "제목 없음")
+                
+                # 메타데이터에서 마크다운 본문 가져오기
+                meta = r.get("metadata") or {}
+                content = meta.get("full_content") or r.get("content", "")
+                
+                # [수정] 모델이 좋아하는 Markdown 헤더 포맷 (ID 제거)
+                formatted_doc = (
+                    f"#### {idx}. {title}\n"
+                    f"{content}"
+                )
+                contexts.append(formatted_doc)
 
-        preface = (
-            "아래는 문제 해결을 위해 검색된 배경지식(참고 문서 5건)입니다. "
-            "이 문서들에는 정답과 관련된 핵심 정보뿐만 아니라 관련 없는 내용(노이즈)도 섞여 있습니다. "
-            "반드시 **문맥에 맞는 정보만 선별**하여 정답을 추론하세요.\n\n"
-        )
+            # 3. 안내문 (Preface)
+            preface = (
+                "아래는 문제 해결을 위해 검색된 배경지식(참고 문서 3건)입니다. "
+                "이 문서들에는 정답과 관련된 핵심 정보뿐만 아니라 관련 없는 내용(노이즈)도 섞여 있습니다. "
+                "반드시 **문맥에 맞는 정보만 선별**하여 정답을 추론하세요.\n\n"
+            )
 
-        return preface + "\n\n".join(contexts)
+            # [수정] 문서 사이에 구분선(---)을 넣어 섞임 방지
+            full_context = "\n\n---\n\n".join(contexts)
+
+            return preface + full_context
 
     def add_documents_to_df(self, df: pd.DataFrame, history_classifier: HistoryClassifier) -> pd.DataFrame:
         documents = []
@@ -190,8 +199,7 @@ class RAGPipeline:
 
 
 if __name__ == "__main__":
-    from unsloth import FastLanguageModel
-
+    
     print("✅ Unsloth 모델 로딩 중...")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name="unsloth/Qwen2.5-32B-Instruct-bnb-4bit",
@@ -200,11 +208,12 @@ if __name__ == "__main__":
         dtype=torch.float16,
     )
     FastLanguageModel.for_inference(model)
-    history_classifier = HistoryClassifier(model, tokenizer)
+    history_classifier: HistoryClassifier | _FallbackHistoryClassifier = HistoryClassifier(model, tokenizer)
 
     data_path = "src/data/train.csv"
     df = pd.read_csv(data_path)
     retriever = EnsembleRetriever(top_k=5)
+    # 외부에서 EnsembleRetriever 주입 필요
     rag = RAGPipeline(corpus_path="src/corpus/corpus.json", retriever=retriever)
     df_with_docs = rag.add_documents_to_df(df, history_classifier)
 

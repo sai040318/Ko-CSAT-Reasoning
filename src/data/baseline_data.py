@@ -38,7 +38,7 @@ class BaselineDataset(BaseDataset):
                 "choices": problems["choices"],
                 "answer": problems.get("answer", None),
                 "question_plus": problems.get("question_plus", None),
-                "documents": row["documents"],
+                "documents": row["documents"] if "documents" in df.columns else None,
             }
             records.append(record)
 
