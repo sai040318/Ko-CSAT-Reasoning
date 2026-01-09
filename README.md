@@ -81,7 +81,10 @@ python src/run.py mode=evaluate
 python src/run.py mode=inference
 
 # 4. 앙상블 진행
-python 
+python
+
+# 5. thinking 모델 실행(develop2-inference-only)
+uv run run_inference.py
 ````
 ## 📁 파일 구조
 ````
@@ -125,5 +128,6 @@ main/
 ├── requirements.txt
 └── install.sh
 ````
+
 
 
