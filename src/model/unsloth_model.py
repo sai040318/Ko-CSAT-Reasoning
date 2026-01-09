@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from src.model.base_model import BaseModel
 from src.utils.registry import MODEL_REGISTRY
-
+# 레지스트리 등록
 @MODEL_REGISTRY.register("unsloth")
 class UnslothModel(BaseModel):
     """
@@ -26,22 +26,19 @@ class UnslothModel(BaseModel):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_seq_length = kwargs.get("max_seq_length", 2048)
         self.load_in_4bit = kwargs.get("load_in_4bit", True)
-        
-        # 🔧 추론 모드인지 확인 (load_model을 나중에 호출할 예정이면 LoRA 초기화 스킵)
+
         skip_init = kwargs.get("skip_init", False)
-        
-        # ✅ Unsloth에서 model + tokenizer를 동시에 로드
+
         self.model, self.tokenizer = FastLanguageModel.from_pretrained(
             model_name=model_name_or_path,
             max_seq_length=self.max_seq_length,
             load_in_4bit=self.load_in_4bit,
-            attn_implementation="sdpa",  # Unsloth의 고속 어텐션 방식 활용
+            attn_implementation="sdpa",  
         )
         
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
 
-        # ✅ LoRA (학습 모드에만 적용, skip_init=True면 스킵)
         if not skip_init and kwargs.get("use_peft", True):
             self.model = FastLanguageModel.get_peft_model(
                 self.model,
@@ -69,13 +66,8 @@ class UnslothModel(BaseModel):
 
         model_name = self.model_name_or_path.lower()
 
-        # ✅ 모델별 loss 전략 자동 분기
-        if "gemma" in model_name:
-            loss_config = dict(completion_only_loss=True)
-        else:
-            # llama / qwen
-            loss_config = dict(completion_only_loss=True)
-            # loss_config = dict(assistant_only_loss=True)
+        loss_config = dict(completion_only_loss=True)
+
 
         training_args = SFTConfig(
             output_dir=kwargs.get("output_dir", "./output"),
@@ -98,7 +90,6 @@ class UnslothModel(BaseModel):
             **loss_config,
         )
 
-        # ⚠️ eval_strategy="no"일 때는 eval_dataset을 전달하지 않음
         trainer = SFTTrainer(
             model=self.model,
             train_dataset=train_dataset,
@@ -107,15 +98,11 @@ class UnslothModel(BaseModel):
             processing_class=self.tokenizer,
         )
 
-        # ================================
-        # TRL entropy 계산 완전 차단 패치
-        # ================================
         import types
 
         _original_compute_loss = trainer.compute_loss
 
         def compute_loss_no_entropy(self, model, inputs, return_outputs=False, **kwargs):
-            # 원래 loss 계산
             outputs = model(**inputs)
             loss = outputs.loss
 
@@ -140,37 +127,30 @@ class UnslothModel(BaseModel):
         infer_results = []
         labels = []
         ids = []
-        
-        # 1~5 토큰 ID 매핑
+
         num_tokens = {}
         for i in range(1, 6):
             token_text = str(i)
             token_id = self.tokenizer.encode(token_text, add_special_tokens=False)[0]
             num_tokens[i] = token_id
         
-        print(f"✅ 1~5 토큰 ID: {num_tokens}")
-        print(f"📊 평가 시작: 총 {len(dataset)}개 샘플")
-        
         correct = 0
         for idx, example in enumerate(tqdm(dataset, desc="Evaluating")):
             inputs = {"input_ids": torch.tensor([example["input_ids"]]).to(self.device)}
             
-            # logits 계산
             with torch.no_grad():
                 outputs = self.model(**inputs)
-                logits = outputs.logits[0, -1, :]  # 마지막 토큰 logits
+                logits = outputs.logits[0, -1, :] 
             
             # 1~5 중 최고 확률
             scores = [logits[num_tokens[i]].item() for i in range(1, 6)]
-            pred_idx = np.argmax(scores)  # 0~4 인덱스
+            pred_idx = np.argmax(scores) 
             
             infer_results.append(pred_idx)
-            
-            # 레이블
+
             label_val = int(example["answer"]) - 1 if example["answer"] else 0
             labels.append(label_val)
-            
-            # ID 저장
+
             if "id" in example:
                 ids.append(example["id"])
             else:
@@ -186,76 +166,22 @@ class UnslothModel(BaseModel):
         
         print(f"\n{'='*60}")
         print(f"📈 평가 결과")
-        print(f"{'='*60}")
         print(f"  - Accuracy: {accuracy:.4f} ({correct}/{len(dataset)})")
         print(f"  - Macro F1: {macro_f1:.4f}")
-        print(f"{'='*60}\n")
         
-        # ✅ 결과 CSV 저장
+        # 결과 CSV 저장
+        # 에러케이스 분석용
         eval_output_path = kwargs.get("eval_output_path", None)
         if eval_output_path:
-            # 원본 CSV 로드
             eval_dataset_path = kwargs.get("eval_dataset_path", None)
             if eval_dataset_path and os.path.exists(eval_dataset_path):
                 df_original = pd.read_csv(eval_dataset_path)
-                
-                # predict와 correct 컬럼 추가
+
                 df_original["predict"] = [infer_results[i] + 1 for i in range(len(infer_results))]  # 1~5로 변환
                 df_original["correct"] = ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
-                
-                # 결과 저장
+
                 os.makedirs(os.path.dirname(eval_output_path), exist_ok=True)
                 df_original.to_csv(eval_output_path, index=False)
-                print(f"✅ 평가 결과 CSV 저장 완료: {eval_output_path}")
-            else:
-                # 원본 CSV가 없을 경우, original_dataset_path로 원본 데이터 로드 시도
-                original_dataset_path = kwargs.get("original_dataset_path", None)
-                
-                if original_dataset_path and os.path.exists(original_dataset_path):
-                    # 원본 CSV 로드하여 id로 매칭
-                    from ast import literal_eval
-                    df_original = pd.read_csv(original_dataset_path)
-                    
-                    # id를 기준으로 필요한 정보 추출
-                    id_to_data = {}
-                    for _, row in df_original.iterrows():
-                        problems = literal_eval(row["problems"])
-                        id_to_data[row["id"]] = {
-                            "paragraph": row["paragraph"],
-                            "question": problems["question"],
-                            "choices": problems["choices"],
-                            "answer": problems.get("answer", None),
-                            "question_plus": problems.get("question_plus", None)
-                        }
-                    
-                    # 평가된 샘플의 정보만 수집
-                    result_data = []
-                    for i in range(len(ids)):
-                        sample_id = ids[i]
-                        if sample_id in id_to_data:
-                            data = id_to_data[sample_id]
-                            result_data.append({
-                                "id": sample_id,
-                                "paragraph": data["paragraph"],
-                                "question": data["question"],
-                                "choices": str(data["choices"]),  # list를 문자열로
-                                "answer": labels[i] + 1,  # 1~5로 변환
-                                "predict": infer_results[i] + 1,  # 1~5로 변환
-                                "correct": "O" if infer_results[i] == labels[i] else "X"
-                            })
-                    
-                    df_results = pd.DataFrame(result_data)
-                else:
-                    # 원본 데이터도 없으면 기본 형식으로 저장
-                    df_results = pd.DataFrame({
-                        "id": ids,
-                        "answer": [labels[i] + 1 for i in range(len(labels))],  # 1~5로 변환
-                        "predict": [infer_results[i] + 1 for i in range(len(infer_results))],  # 1~5로 변환
-                        "correct": ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
-                    })
-                
-                os.makedirs(os.path.dirname(eval_output_path), exist_ok=True)
-                df_results.to_csv(eval_output_path, index=False)
                 print(f"✅ 평가 결과 CSV 저장 완료: {eval_output_path}")
         
         return {
@@ -269,8 +195,6 @@ class UnslothModel(BaseModel):
         FastLanguageModel.for_inference(self.model)
 
         predictions = {}
-        
-        # ✅ 안전한 토큰 ID 추출 방법
         target_token_ids = [
             self.tokenizer.encode(str(i), add_special_tokens=False)[0]
             for i in range(1, 6)
@@ -293,17 +217,14 @@ class UnslothModel(BaseModel):
     def load_model(self, load_path: str):
         """
         저장된 LoRA adapter를 로드
-        (Base 모델은 이미 __init__에서 로드되어 있음)
         """
         from peft import PeftModel
-        
-        # ✅ 이미 로드된 base 모델에 LoRA adapter 적용
+
         self.model = PeftModel.from_pretrained(
             self.model, 
             load_path,
-            is_trainable=False  # 추론 모드
+            is_trainable=False 
         )
-        
-        # ✅ 추론 모드로 전환
+
         FastLanguageModel.for_inference(self.model)
 

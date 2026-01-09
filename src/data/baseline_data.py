@@ -9,13 +9,13 @@ from prompt.prompt_templates import build_chat_messages
 @DATASET_REGISTRY.register("baseline")
 class BaselineDataset(BaseDataset):
     """
-    대회에서 제공된 베이스라인 데이터 로더.
     CSV 파일을 읽어 'problems' 컬럼을 파싱하고 평탄화합니다.
     """
+
     def __init__(self, data_path: str):
         super().__init__(data_path)
         self.extra_columns = {}
-
+        
     def load_data(self) -> DatasetDict:
         df = pd.read_csv(self.data_path)
 
@@ -48,9 +48,6 @@ class BaselineDataset(BaseDataset):
         self.dataset = DatasetDict({"train": dataset})
         return self.dataset
 
-    # ==========================================================
-    # 전처리 (Gemma / Chat 모델 분기)
-    # ==========================================================
     def preprocess(
         self,
         tokenizer: Any,
@@ -59,6 +56,7 @@ class BaselineDataset(BaseDataset):
         add_generation_prompt: bool = False,
         filter_over_length: bool = False,
         truncation: bool = True,
+        exclude_answer_from_prompt: bool = False, 
         **kwargs,
     ) -> DatasetDict:
 
@@ -68,34 +66,14 @@ class BaselineDataset(BaseDataset):
         is_gemma = "gemma" in (tokenizer.name_or_path or "").lower()
 
         def tokenize_fn(examples):
-            # 1. 공통: chat message 생성
+            examples_for_prompt = examples.copy() if exclude_answer_from_prompt else examples
+            if exclude_answer_from_prompt:
+                examples_for_prompt["answer"] = [None] * len(examples["answer"])
+            
             chat_messages = build_chat_messages(
                 template_name=template,
-                examples=examples,
+                examples=examples_for_prompt, 
             )
-
-            # ------------------------------
-            # Gemma 전용 경로
-            # ------------------------------
-            if is_gemma:
-                prompts = [
-                    build_gemma_prompt(
-                        messages=msg,
-                        add_generation_prompt=add_generation_prompt,
-                    )
-                    for msg in chat_messages
-                ]
-
-                return tokenizer(
-                    prompts,
-                    truncation=truncation,
-                    max_length=max_length,
-                    padding=False,
-                )
-
-            # ------------------------------
-            # LLaMA / Qwen (기존 로직)
-            # ------------------------------
             formatted_prompts = [
                 tokenizer.apply_chat_template(
                     msg,
@@ -125,54 +103,12 @@ class BaselineDataset(BaseDataset):
             desc="Tokenizing",
         )
 
-        # 길이 필터링 (원본 그대로)
+
         if filter_over_length:
             original_len = len(processed_dataset["train"])
             processed_dataset = processed_dataset.filter(
                 lambda x: len(x["input_ids"]) <= max_length
             )
             filtered_len = len(processed_dataset["train"])
-            print(
-                f"📊 데이터 필터링 완료: {original_len} -> {filtered_len} "
-                f"(제외된 샘플 수: {original_len - filtered_len})"
-            )
 
         return processed_dataset
-
-# ==========================================================
-# Gemma 전용 유틸 함수
-# ==========================================================
-def build_gemma_prompt(messages, add_generation_prompt: bool = False) -> str:
-    """
-    Gemma용 prompt 문자열 생성
-    - system role 미지원 → user 메시지에 병합
-    - chat_template 사용하지 않음
-    """
-
-    system_text = ""
-    turns = []
-
-    for m in messages:
-        role = m["role"]
-        content = m["content"].strip()
-
-        if role == "system":
-            system_text += content + "\n"
-
-        elif role == "user":
-            if system_text:
-                content = system_text + content
-                system_text = ""
-            turns.append(
-                f"<start_of_turn>user\n{content}<end_of_turn>\n"
-            )
-
-        elif role == "assistant":
-            turns.append(
-                f"<start_of_turn>model\n{content}<end_of_turn>\n"
-            )
-
-    if add_generation_prompt:
-        turns.append("<start_of_turn>model\n")
-
-    return "".join(turns)
