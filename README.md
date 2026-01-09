@@ -54,7 +54,7 @@ hard voting 진행
 - LGAI-EXAONE/EXAONE-4.0-32B-AWQ
 
 ### 상세 실험 내용
-- [랩업 리포트](https://github.com/boostcampaitech8/pro-nlp-generationfornlp-nlp-09/raw/main/asset/%E1%84%89%E1%85%AE%E1%84%82%E1%85%B3%E1%86%BC%E1%84%92%E1%85%A7%E1%86%BC%20%E1%84%86%E1%85%AE%E1%86%AB%E1%84%8C%E1%85%A6%20%E1%84%91%E1%85%AE%E1%86%AF%E1%84%8B%E1%85%B5%20%E1%84%86%E1%85%A9%E1%84%83%E1%85%A6%E1%86%AF%20%E1%84%89%E1%85%A2%E1%86%BC%E1%84%89%E1%85%A5%E1%86%BC%20WRAP-UP%20REPORT.pdf)   
+- [랩업 리포트](https://github.com/boostcampaitech8/pro-nlp-generationfornlp-nlp-09/blob/main/asset/%E1%84%89%E1%85%AE%E1%84%82%E1%85%B3%E1%86%BC%E1%84%92%E1%85%A7%E1%86%BC%20%E1%84%86%E1%85%AE%E1%86%AB%E1%84%8C%E1%85%A6%20%E1%84%91%E1%85%AE%E1%86%AF%E1%84%8B%E1%85%B5%20%E1%84%86%E1%85%A9%E1%84%83%E1%85%A6%E1%86%AF%20%E1%84%89%E1%85%A2%E1%86%BC%E1%84%89%E1%85%A5%E1%86%BC%20WRAP-UP%20REPORT.pdf)
 
 
 ## 🏆 최종 성적
