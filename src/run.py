@@ -24,7 +24,7 @@ def main(cfg: DictConfig):
     # 난수 시드 고정
     set_seed(cfg.seed)
     
-    print(OmegaConf.to_yaml(cfg))
+    # print(OmegaConf.to_yaml(cfg))
 
     # 모델 클래스 로드 및 Tokenizer 초기화
     model_cls = MODEL_REGISTRY.get(cfg.model.type)
