@@ -46,7 +46,6 @@ def hard_vote(row):
     most_common = [vote for vote, count in vote_counts.items() if count == max_count]
     
     if len(most_common) > 1:
-        # 동점인 경우 qwen3_thinking.csv의 답을 사용
         # 타이브레이커
         tie_breaker_answer = tie_breaker_df.loc[row['id'], 'answer']
         if pd.notna(tie_breaker_answer):
