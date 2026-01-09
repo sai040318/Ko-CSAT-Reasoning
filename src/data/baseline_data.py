@@ -96,9 +96,5 @@ class BaselineDataset(BaseDataset):
                 lambda x: len(x["input_ids"]) <= max_length
             )
             filtered_len = len(processed_dataset["train"])
-            print(
-                f"📊 데이터 필터링 완료: {original_len} -> {filtered_len} "
-                f"(제외된 샘플 수: {original_len - filtered_len})"
-            )
 
         return processed_dataset
