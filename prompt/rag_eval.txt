@@ -9,9 +9,17 @@ CONTEXT:
 </SYSTEM>
 
 <USER>
-지문: {paragraph}
+지문:
+{paragraph}
+
+질문:
+{question}
+
 {question_plus}
-문제: {question}
-보기:
+
+선택지:
 {choices}
+
+1, 2, 3, 4, 5 중에 하나를 정답으로 고르세요.
+정답:
 </USER>

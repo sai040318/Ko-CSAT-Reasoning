@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Union
 from langchain_core.documents import Document
 
 from src.retrieval.base_retriever import BaseRetriever
-from src.rag import build_or_load_faiss_index
+from src.rag.faiss_index_manager import build_or_load_faiss_index
 
 
 class VectorRetriever(BaseRetriever):

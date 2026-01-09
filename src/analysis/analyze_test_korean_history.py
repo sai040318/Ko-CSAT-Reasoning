@@ -1,118 +1,125 @@
-# src/analysis/analyze_test_korean_history.py
-
 import os
+import ast
 import json
 import pandas as pd
-from collections import Counter
 from tqdm import tqdm
 from openai import OpenAI
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-TEST_PATH = "src/data/test.csv"
-OUTPUT_PATH = "analysis/test_korean_history_structure.json"
-MODEL_NAME = "gpt-4.1-mini"
-
-SYSTEM_PROMPT = """
-너는 수능 객관식 문제의 과목과 형식만 분류하는 분석 도우미이다.
-정답을 추론하거나 문제를 풀이하지 않는다.
-문제의 구조적 특징만 분류한다.
-"""
-
-USER_PROMPT_TEMPLATE = """
-다음은 수능 객관식 문제이다.
-
-[지문]
-{paragraph}
-
-[문제]
-{question}
-
-[선지]
-{choices}
-
-❗주의사항:
-- 정답을 추론하거나 풀이하지 마라.
-- 문제의 의미를 설명하지 마라.
-
-아래 항목만 JSON으로 출력하라:
-1. is_korean_history: 한국사 문제 여부 (true / false)
-2. problem_type: 한국사 문제라면 아래 중 하나, 아니면 null
-   ["사료 해석형", "사실 판단형", "사건 순서형", "비교/대조형", "기타"]
-3. has_marker: (가),(나),(다) 같은 사료 지시어 존재 여부 (true / false)
-4. paragraph_length: ["짧음", "중간", "김"]
-"""
-
-def main():
-    df = pd.read_csv(TEST_PATH)
-
-    total = len(df)
-    korean_history_count = 0
-
-    type_counter = Counter()
-    marker_counter = Counter()
-    length_counter = Counter()
-
-    per_problem = []
-
-    for _, row in tqdm(df.iterrows(), total=total):
-        prompt = USER_PROMPT_TEMPLATE.format(
-            paragraph=row.get("paragraph", ""),
-            question=row.get("question", ""),
-            choices=row.get("choices", "")
-        )
-
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.0
-        )
-
-        content = response.choices[0].message.content
-
+def parse_choices(raw):
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
         try:
-            analysis = json.loads(content)
-        except json.JSONDecodeError:
-            continue
+            return json.loads(raw)
+        except Exception:
+            try:
+                return ast.literal_eval(raw)
+            except Exception:
+                return [raw]
+    return []
 
-        if analysis.get("is_korean_history"):
-            korean_history_count += 1
 
-            ptype = analysis.get("problem_type", "기타")
-            type_counter[ptype] += 1
+def classify_with_gpt4(client: OpenAI, paragraph: str, question: str, choices, question_plus: str):
+    choices_str = "\n".join(f"- {c}" for c in choices) if choices else "없음"
+    prompt = f"""
+    You are an expert classifier for a Korean History Exam RAG system.
+    Classify whether the problem requires **External Knowledge Retrieval (Label: A)** or is a **Reading Comprehension task (Label: B)**.
 
-            marker_counter["has_marker" if analysis.get("has_marker") else "no_marker"] += 1
-            length_counter[analysis.get("paragraph_length", "기타")] += 1
+    ### [CRITICAL RULES]
 
-            per_problem.append(analysis)
+    **1. LENGTH HEURISTIC (Strong Indicator for B)**
+    - If the passage is **very long** (e.g., multiple paragraphs, resembles a CSAT non-fiction/essay), it is almost certainly **Label B**.
+    - Long passages usually contain all the logic/answers within the text. Do NOT search just because it mentions historical figures.
 
-    summary = {
-        "total_test_questions": total,
-        "korean_history_questions": korean_history_count,
-        "korean_history_ratio": round(korean_history_count / total, 3),
-        "problem_type_distribution": dict(type_counter),
-        "marker_distribution": dict(marker_counter),
-        "paragraph_length_distribution": dict(length_counter)
-    }
+    **2. ENTITY HEURISTIC (Strong Indicator for A)**
+    - If a **short/medium** passage uses placeholders like **"(가)", "(나)", "This King", "The organization"** without naming them, it is **Label A**.
+    - You must search to identify who "(가)" is.
 
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "summary": summary,
-                "per_problem": per_problem
-            },
-            f,
-            ensure_ascii=False,
-            indent=2
+    ---
+
+    ### [Detailed Classification Criteria]
+
+    **Label A: Retrieval Required (Korean History Knowledge)**
+    - **Identification:** The passage uses "(가)", "Underlined King", "This country" but does not explicitly name them. You need external knowledge to identify the entity.
+    - **Fact verification:** The question asks for chronological order, specific dates, or "other achievements" not mentioned in the text.
+    - **Source Material:** The text is a raw historical record (e.g., Samguk Sagi, Joseon Annals) written in an archaic style, and the question asks for background facts.
+
+    **Label B: No Retrieval Needed (Reading Comprehension)**
+    - **Long Expository Text:** A long explanation or essay about a historical topic (e.g., Silhak, Confucianism analysis). The answer is based on "consistency with the text" or "author's argument".
+    - **Verbatim Match:** The answer options are explicitly stated or paraphrased in the passage.
+    - **General Topics:** Science, Geography, Ethics, or general Social Studies.
+
+    ### [Few-Shot Examples]
+
+    **Case 1 (Long Text / Reading Comp -> B)**
+    Input:
+    - Passage: "(Long text about 18th-century Northern Learning)... Park Je-ga argued that consumption stimulates production... (continuing for 10+ lines)..."
+    - Question: "Which statement is NOT consistent with the passage?"
+    - Choices: "1. Park Je-ga emphasized consumption..."
+    Output: {{ "reason": "The passage is a long expository text. The question asks for consistency with the provided text. All answers can be found by reading.", "label": "B" }}
+
+    **Case 2 (Placeholder Heuristic -> A)**
+    Input:
+    - Passage: "(Ga) established the Gwageo system to weaken the noble families."
+    - Question: "What is the correct description of the king (Ga)?"
+    - Choices: "1. Enacted the Slave Review Act."
+    Output: {{ "reason": "The passage uses the placeholder (Ga). To answer, one must identify (Ga) as King Gwangjong using external knowledge.", "label": "A" }}
+
+    **Case 3 (Specific Fact -> A)**
+    Input:
+    - Passage: "The army retreated from Wihwado."
+    - Question: "What happened immediately AFTER this event?"
+    - Choices: "1. The Joseon Dynasty was founded."
+    Output: {{ "reason": "The question asks for chronological order/subsequent events not described in the text. External history knowledge is required.", "label": "A" }}
+
+    ### [Target Problem]
+    Passage: {paragraph[:1500]} 
+    Question: {question}
+    Question Plus: {question_plus or 'None'}
+    Choices: {choices_str}
+
+    **Output Format:** JSON only. {{"label": "A" or "B" }}
+    """
+
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.0,
         )
-
-    print("✅ 한국사 test 구조 분석 완료")
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return json.loads(resp.choices[0].message.content)
+    except Exception as e:
+        print(f"Error: {e}")
+        # 실패 시 보수적으로 B(검색 안함)로 처리
+        return {"label": "B"}
 
 
 if __name__ == "__main__":
-    main()
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY 환경변수를 설정하세요.")
+    client = OpenAI(api_key=api_key)
+
+    df_test = pd.read_csv("src/data/test.csv")
+    results = []
+
+    print("🚀 GPT-4o 분류 시작...")
+    for _, row in tqdm(df_test.iterrows(), total=len(df_test)):
+        paragraph = row.get("paragraph", "")
+        question = row.get("question", "")
+        choices = parse_choices(row.get("choices", []))
+        question_plus = row.get("question_plus", "")
+
+        cls_result = classify_with_gpt4(client, paragraph, question, choices, question_plus)
+        results.append(
+            {
+                "id": row.get("id", ""),
+                "label": cls_result.get("label", "B"),
+            }
+        )
+
+    df_cls = pd.DataFrame(results)
+    df_cls.to_csv("gpt4_classification_results1.csv", index=False)
+    print("✅ 분류 완료! gpt4_classification_results.csv 저장됨")

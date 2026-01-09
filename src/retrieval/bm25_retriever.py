@@ -8,6 +8,35 @@ from rank_bm25 import BM25Okapi
 from src.retrieval.base_retriever import BaseRetriever
 
 
+def _build_augmented_text(item: Dict[str, Any]) -> str:
+    """
+    search_text에 title/aliases/rag_matching_keywords(quotes, related_terms)을 덧붙여
+    검색용 텍스트를 만든다.
+    """
+    parts: List[str] = []
+    search_text = item.get("search_text", "")
+    if search_text:
+        parts.append(str(search_text))
+
+    title = item.get("title")
+    if title:
+        parts.append(str(title))
+
+    aliases = item.get("aliases", [])
+    if aliases:
+        parts.extend([str(a) for a in aliases])
+
+    keywords = item.get("rag_matching_keywords", {}) or {}
+    quotes = keywords.get("quotes", [])
+    related_terms = keywords.get("related_terms", [])
+    if quotes:
+        parts.extend([str(q) for q in quotes])
+    if related_terms:
+        parts.extend([str(t) for t in related_terms])
+
+    return " ".join(parts).strip()
+
+
 def _content_dict_to_markdown(content: Dict[str, Any]) -> str:
     """content 딕셔너리를 간단한 Markdown 문자열로 변환합니다."""
     lines: List[str] = []
@@ -63,8 +92,8 @@ class BM25Retriever(BaseRetriever):
         self.tokenized_corpus = []
 
         for item in corpus:
-            search_text = item.get("search_text", "")
-            tokens = _tokenize_ko(search_text)
+            augmented_text = _build_augmented_text(item)
+            tokens = _tokenize_ko(augmented_text)
             self.tokenized_corpus.append(tokens)
 
             metadata = {
@@ -79,7 +108,8 @@ class BM25Retriever(BaseRetriever):
                 {
                     "doc_id": item["doc_id"],
                     "title": item.get("title"),
-                    "search_text": search_text,
+                    "search_text": item.get("search_text", ""),
+                    "augmented_text": augmented_text,
                     "metadata": metadata,
                 }
             )
@@ -122,7 +152,7 @@ class BM25Retriever(BaseRetriever):
                     "title": doc["title"],
                     "score": scores[idx],
                     "metadata": doc["metadata"],
-                    "content": doc["search_text"],
+                    "content": doc["augmented_text"],
                 }
             )
 
