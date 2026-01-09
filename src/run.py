@@ -15,28 +15,22 @@ from transformers import AutoTokenizer
 from src.utils.registry import MODEL_REGISTRY, DATASET_REGISTRY
 from src.utils.utils import set_seed
 
-# 레지스트리에 모델과 데이터셋을 등록하기 위해 import
-# __init__.py에서 자동으로 baseline_model과 baseline_data를 import함
-import src.model  # noqa: F401
-import src.data  # noqa: F401 
+import src.model  
+import src.data  
 
 # Hydra를 통해 설정 파일을 로드합니다.
-# config_path는 프로젝트 루트 기준으로 설정
 @hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
 def main(cfg: DictConfig):
     # 난수 시드 고정
     set_seed(cfg.seed)
     
-    print(OmegaConf.to_yaml(cfg))
+    # print(OmegaConf.to_yaml(cfg))
 
     # 모델 클래스 로드 및 Tokenizer 초기화
-    # 모델에 맞는 토크나이저(Chat Template 포함)를 가져오기 위해 모델 클래스를 먼저 로드합니다.
     model_cls = MODEL_REGISTRY.get(cfg.model.type)
     
-    # 실행 모드에 따른 동작 수행
     if cfg.mode == "train":
-
-        # Model 초기화
+        print("🚀 학습 모드 시작")
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
             use_peft=cfg.model.use_peft,
@@ -46,7 +40,7 @@ def main(cfg: DictConfig):
             lora_target_modules=cfg.model.lora_target_modules,
             max_seq_length=cfg.model.max_seq_length,
             lora_bias=cfg.model.lora_bias,
-            **cfg.training # 학습 관련 설정 전달
+            **cfg.training 
         )
 
         tokenizer = model.tokenizer
@@ -61,14 +55,12 @@ def main(cfg: DictConfig):
             template=cfg.prompt.name, 
             **cfg.dataset.preprocess.train
         )
-
-        # 📊 데이터셋을 8:2로 train/eval split
         from datasets import DatasetDict
         
         full_dataset = processed_dataset["train"]
+        # dataset split
         split_ratio = cfg.dataset.get("split_ratio", 0.8)  
-        
-        # train_test_split 사용
+
         split_dataset = full_dataset.train_test_split(
             train_size=split_ratio,
             seed=cfg.seed
@@ -77,12 +69,6 @@ def main(cfg: DictConfig):
         train_dataset = split_dataset["train"]
         eval_dataset = split_dataset["test"]
         
-        print("🚀 학습 모드 시작")
-        print(f"📊 데이터셋 split 완료:")
-        print(f"  - 학습 데이터: {len(train_dataset)}개 ({split_ratio*100:.0f}%)")
-        print(f"  - 평가 데이터: {len(eval_dataset)}개 ({(1-split_ratio)*100:.0f}%)")
-        
-        # 학습 및 평가
         model.train(
             train_dataset=train_dataset,
             eval_dataset=None,
@@ -92,15 +78,13 @@ def main(cfg: DictConfig):
     elif cfg.mode == "inference":
         print("🚀 추론 모드 시작")
         
-        # 2-1. Model 초기화 (skip_init=True로 tokenizer만 로드)
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
-            skip_init=True,  # ⭐ 모델 초기화 스킵, 나중에 load_model()에서 로드
+            skip_init=True,  
             max_seq_length=cfg.model.max_seq_length,
         )
         tokenizer = model.tokenizer
         
-        # 2-2. 학습된 모델 로드
         model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
         if not os.path.exists(model_load_path):
             raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
@@ -116,10 +100,7 @@ def main(cfg: DictConfig):
         print(f"모델 로드 중: {model_load_path}")
         model.load_model(model_load_path)
         
-        # 2-3. test.csv 로드 및 전처리
         test_dataset_path = cfg.inference.get("test_dataset_path", "data/test.csv")
-        if not os.path.exists(test_dataset_path):
-            raise ValueError(f"테스트 데이터셋 경로를 찾을 수 없습니다: {test_dataset_path}")
         
         print(f"테스트 데이터셋 로드 중: {test_dataset_path}")
         test_dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
@@ -130,79 +111,61 @@ def main(cfg: DictConfig):
             template=cfg.prompt.name, 
             **cfg.dataset.preprocess.inference
         )
-        
-        # 2-4. 추론 수행
+
         predictions = model.predict(
             dataset=processed_test_dataset["train"],
             **cfg.inference
         )
         
-        # 2-5. 결과 출력 (일부만)
-        print(f"총 {len(predictions)}개 예측 완료")
-        print(f"샘플 예측 결과: {list(predictions.items())[:3]}")
-        
-        # 2-6. output.csv 저장
+
         output_path = cfg.inference.get("output_path", "output/output.csv")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
-        # predictions 딕셔너리를 DataFrame으로 변환
+
         df_output = pd.DataFrame([
             {"id": id, "answer": answer} 
             for id, answer in predictions.items()
         ])
-        df_output = df_output.sort_values("id")  # id 순서대로 정렬
+        df_output = df_output.sort_values("id")
         df_output.to_csv(output_path, index=False)
         print(f"결과 저장 완료: {output_path}")
         
     elif cfg.mode == "evaluate":
         print("🚀 평가 모드 시작")
-        
-        # Model 초기화 (skip_init=True로 tokenizer만 로드)
+
         model = model_cls(
             model_name_or_path=cfg.model.model_name_or_path,
-            skip_init=True,  # ⭐ 모델 초기화 스킵, 나중에 load_model()에서 로드
+            skip_init=True, 
             max_seq_length=cfg.model.max_seq_length,
         )
 
         tokenizer = model.tokenizer
 
-        # 📊 train 모드와 동일하게 config의 path 데이터셋 로드
         dataset_cls = DATASET_REGISTRY.get(cfg.dataset.type)
         dataset = dataset_cls(cfg.dataset.path)
-        
-        # ✅ evaluate 전용 설정 사용 (없으면 inference 설정 fallback)
+
         eval_preprocess_config = cfg.dataset.preprocess.get("evaluate", cfg.dataset.preprocess.inference)
-        
-        # Dataset 로드 및 전처리
+
         processed_dataset = dataset.preprocess(
             tokenizer, 
             max_length=cfg.model.max_seq_length, 
             template=cfg.prompt.name, 
-            **eval_preprocess_config  # ← evaluate 설정 사용
+            **eval_preprocess_config  
         )
-        
-        # 📊 데이터셋을 8:2로 train/eval split (train과 동일한 방식)
+        # dataset split
         full_dataset = processed_dataset["train"]
         split_ratio = cfg.dataset.get("split_ratio", 0.8)
         
-        # train_test_split 사용 (동일한 seed로 train과 같은 split)
+
         split_dataset = full_dataset.train_test_split(
             train_size=split_ratio,
             seed=cfg.seed
         )
         
-        # 평가용 데이터만 사용 (20%)
-        eval_dataset = split_dataset["test"]
-        
-        print(f"📊 평가 데이터셋 준비 완료:")
-        print(f"  - 평가 데이터: {len(eval_dataset)}개 ({(1-split_ratio)*100:.0f}%)")
 
-        # 학습된 모델 로드
+        eval_dataset = split_dataset["test"]
+
         model_load_path = cfg.evaluate.get("model_load_path", cfg.training.output_dir)
-        if not os.path.exists(model_load_path):
-            raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
-        
-        # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
+
         p = Path(model_load_path)
         ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
         if ckpts:
@@ -214,10 +177,9 @@ def main(cfg: DictConfig):
         print(f"모델 로드 중: {model_load_path}")
         model.load_model(model_load_path)
         
-        # split된 평가 데이터로 평가
         metrics = model.evaluate(
             eval_dataset,
-            original_dataset_path=cfg.dataset.path,  # 원본 데이터 경로 전달
+            original_dataset_path=cfg.dataset.path, 
             eval_output_path=cfg.evaluate.get("eval_output_path", "output/eval_results.csv")
         )
         print(f"평가 결과 : {metrics}")
