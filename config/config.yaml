@@ -1,7 +1,6 @@
-# 기본 설정
 mode: train # train, inference, evaluate
 seed: 42
-exp_name: baseline_gemma_exp
+exp_name: unsloth_qwen2.5_32b_exp
 
 # Hydra 설정
 hydra:
@@ -13,62 +12,76 @@ hydra:
 dataset:
   type: baseline
   path: data/train.csv
+  split_ratio: 0.8  
   
   # 전처리 옵션
   preprocess:
     train:
       add_generation_prompt: false
       filter_over_length: true
+      truncation: true
     inference:
       add_generation_prompt: true
       filter_over_length: false
+      truncation: true
+    evaluate: 
+      add_generation_prompt: true
+      filter_over_length: false
+      truncation: true
+      exclude_answer_from_prompt: true
 
 # 프롬프트 탬플릿(txt) 설정
 prompt:
   name: base
 
-# 모델 설정 (Baseline: beomi/gemma-ko-2b)
+# 모델 설정 
 model:
-  type: baseline
-  model_name_or_path: "beomi/gemma-ko-2b"
+  type: unsloth 
+  model_name_or_path: "unsloth/Qwen2.5-32B-Instruct-bnb-4bit"
   use_peft: true
-  max_seq_length: 1024
+  max_seq_length: 4096 
+  load_in_4bit: true  
   
-  # LoRA 설정 (Baseline과 동일하게 맞춤)
-  lora_r: 6
-  lora_alpha: 8
-  lora_dropout: 0.05
-  lora_target_modules: ['q_proj', 'k_proj'] # 중요: 타겟 모듈 명시
+  lora_r: 32         
+  lora_alpha: 32      
+  lora_dropout: 0      
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
   lora_bias: "none"
-
-# 학습 설정 (SFTConfig 전달용)
+# 학습 모드
 training:
-  output_dir: output/outputs_gemma
-  num_train_epochs: 3
-  per_device_train_batch_size: 1
+  output_dir: output/unsloth_qwen2.5_32b
+  num_train_epochs: 2
+  per_device_train_batch_size: 1 
   per_device_eval_batch_size: 1
-  gradient_accumulation_steps: 1
-  learning_rate: 2e-5
-  lr_scheduler_type: "cosine" # 중요: Baseline은 cosine 사용
+  gradient_accumulation_steps: 16 
+  learning_rate: 1e-4  
+  lr_scheduler_type: "cosine"  
+  warmup_ratio: 0.03   
   weight_decay: 0.01
-  logging_steps: 100 # Baseline은 1 step마다 로깅
-  eval_steps: 50
+  max_grad_norm: 1.0   
+  logging_steps: 1   
   save_strategy: "epoch"
-  evaluation_strategy: "epoch"
+  eval_strategy: "no"  
   save_total_limit: 2
   save_only_model: true
-  fp16: true 
-  bf16: false  
-  report_to: "none"
+  fp16: true
+  bf16: false
+  packing: true        
+  report_to: "none"   
 
-# 추론 설정
+# 추론 모드
 inference:
   max_new_tokens: 1
-  batch_size: 1
-  test_dataset_path: data/test.csv  # 테스트 데이터셋 경로
-  model_load_path: output/outputs_gemma  # 학습된 모델 경로 (기본값: training.output_dir)
-  output_path: output/output.csv  # 결과 저장 경로
+  batch_size: 1       
+  test_dataset_path: data/test.csv
+  model_load_path: output/unsloth_qwen2.5_32b
+  output_path: output/qwen2.5_32b_output.csv
 
-# RAG 설정 (미사용)
+# 평가 모드
+evaluate:
+  model_load_path: output/unsloth_qwen2.5_32b
+  eval_output_path: output/qwen2.5_shuffle_self_eval_results.csv
+
+# RAG 설정
 rag:
   use: false
