@@ -85,44 +85,45 @@ python
 ````
 ## 📁 파일 구조
 ````
-main
-  config
-    config.yaml
-  src
-    data
-      base_data.py
-      baseline_data.py
-      data_shuffle.py
-    model
-      base_model.py
-      baseline_model.py
-      unsloth_model.py
-    rag
-      base_rag.py
-      faiss_index_manager.py
-      reg_pipeline.py
-    corpus
-      corpus.json
-      manage_corpus.py
-    retrieval
-      base_retriever.py
-      bm25_retriever.py
-      ensemble_retriever.py
-      vector_retriever.py
-    run.py
-  analysis
-    test_korean_history_structure.json
-  prompt
-    base.txt
-    prompt_templates.py
-    rag_eval.txt
-  faiss-index
-    index.faiss
-    index.pkl
-  scripts
-  eda/notebooks
-  README.md
-  requirements.txt
-  install.sh
+main/
+├── config/
+│   └── config.yaml
+├── src/
+│   ├── data/
+│   │   ├── base_data.py
+│   │   ├── baseline_data.py
+│   │   └── data_shuffle.py
+│   ├── model/
+│   │   ├── base_model.py
+│   │   ├── baseline_model.py
+│   │   └── unsloth_model.py
+│   ├── rag/
+│   │   ├── base_rag.py
+│   │   ├── faiss_index_manager.py
+│   │   └── reg_pipeline.py
+│   ├── corpus/
+│   │   ├── corpus.json
+│   │   └── manage_corpus.py
+│   ├── retrieval/
+│   │   ├── base_retriever.py
+│   │   ├── bm25_retriever.py
+│   │   ├── ensemble_retriever.py
+│   │   └── vector_retriever.py
+│   └── run.py
+├── analysis/
+│   └── test_korean_history_structure.json
+├── prompt/
+│   ├── base.txt
+│   ├── prompt_templates.py
+│   └── rag_eval.txt
+├── faiss-index/
+│   ├── index.faiss
+│   └── index.pkl
+├── scripts/
+├── eda/
+├── README.md
+├── requirements.txt
+└── install.sh
 ````
+
 
