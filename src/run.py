@@ -323,18 +323,8 @@ def main(cfg: DictConfig):
             template=cfg.prompt.name, 
             **eval_preprocess_config  
         )
-        # dataset split
-        full_dataset = processed_dataset["train"]
-        split_ratio = cfg.dataset.get("split_ratio", 0.8)
-        
-
-        split_dataset = full_dataset.train_test_split(
-            train_size=split_ratio,
-            seed=cfg.seed
-        )
-        
-
-        eval_dataset = split_dataset["test"]
+        # 평가 모드에서는 입력된 평가용 CSV 전체를 그대로 사용합니다.
+        eval_dataset = processed_dataset["train"]
 
         model_load_path = cfg.evaluate.get("model_load_path", cfg.training.output_dir)
 
