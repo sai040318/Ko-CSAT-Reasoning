@@ -173,7 +173,10 @@ class UnslothModel(BaseModel):
         # 에러케이스 분석용
         eval_output_path = kwargs.get("eval_output_path", None)
         if eval_output_path:
-            eval_dataset_path = kwargs.get("eval_dataset_path", None)
+            eval_dataset_path = kwargs.get(
+                "eval_dataset_path",
+                kwargs.get("original_dataset_path", None),
+            )
             if eval_dataset_path and os.path.exists(eval_dataset_path):
                 df_original = pd.read_csv(eval_dataset_path)
 
@@ -227,4 +230,3 @@ class UnslothModel(BaseModel):
         )
 
         FastLanguageModel.for_inference(self.model)
-
