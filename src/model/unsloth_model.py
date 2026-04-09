@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import pandas as pd
 import os
+import re
 from sklearn.metrics import f1_score
 from typing import Any, Dict, Optional
 from datasets import Dataset
@@ -125,28 +126,17 @@ class UnslothModel(BaseModel):
         FastLanguageModel.for_inference(self.model)
         
         infer_results = []
+        generated_texts = []
         labels = []
         ids = []
-
-        num_tokens = {}
-        for i in range(1, 6):
-            token_text = str(i)
-            token_id = self.tokenizer.encode(token_text, add_special_tokens=False)[0]
-            num_tokens[i] = token_id
         
         correct = 0
         for idx, example in enumerate(tqdm(dataset, desc="Evaluating")):
-            inputs = {"input_ids": torch.tensor([example["input_ids"]]).to(self.device)}
-            
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits[0, -1, :] 
-            
-            # 1~5 중 최고 확률
-            scores = [logits[num_tokens[i]].item() for i in range(1, 6)]
-            pred_idx = np.argmax(scores) 
-            
+            generated_text = self._generate_choice_answer(example, max_new_tokens=kwargs.get("max_new_tokens", 8))
+            pred_idx = self._extract_choice_index(generated_text)
+
             infer_results.append(pred_idx)
+            generated_texts.append(generated_text)
 
             label_val = int(example["answer"]) - 1 if example["answer"] else 0
             labels.append(label_val)
@@ -182,6 +172,7 @@ class UnslothModel(BaseModel):
 
                 df_original["predict"] = [infer_results[i] + 1 for i in range(len(infer_results))]  # 1~5로 변환
                 df_original["correct"] = ["O" if infer_results[i] == labels[i] else "X" for i in range(len(infer_results))]
+                df_original["generated_text"] = generated_texts
 
                 os.makedirs(os.path.dirname(eval_output_path), exist_ok=True)
                 df_original.to_csv(eval_output_path, index=False)
@@ -198,18 +189,11 @@ class UnslothModel(BaseModel):
         FastLanguageModel.for_inference(self.model)
 
         predictions = {}
-        target_token_ids = [
-            self.tokenizer.encode(str(i), add_special_tokens=False)[0]
-            for i in range(1, 6)
-        ]
 
         for example in tqdm(dataset, desc="Predicting", total=len(dataset)):
-            inputs = torch.tensor([example["input_ids"]]).to(self.device)
-            with torch.no_grad():
-                logits = self.model(inputs).logits
-                scores = logits[:, -1, target_token_ids].cpu().numpy()
-                pred = int(np.argmax(scores)) + 1
-                predictions[example["id"]] = str(pred)
+            generated_text = self._generate_choice_answer(example, max_new_tokens=kwargs.get("max_new_tokens", 8))
+            pred = self._extract_choice_index(generated_text) + 1
+            predictions[example["id"]] = str(pred)
 
         return predictions
 
@@ -230,3 +214,33 @@ class UnslothModel(BaseModel):
         )
 
         FastLanguageModel.for_inference(self.model)
+
+    def _generate_choice_answer(self, example: Dict[str, Any], max_new_tokens: int = 8) -> str:
+        input_ids = torch.tensor([example["input_ids"]], device=self.device)
+        attention_mask = torch.ones_like(input_ids, device=self.device)
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                temperature=0.0,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            )
+
+        generated_ids = outputs[0, input_ids.shape[1]:]
+        return self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+
+    @staticmethod
+    def _extract_choice_index(text: str) -> int:
+        match = re.search(r"\b([1-5])\b", text)
+        if match:
+            return int(match.group(1)) - 1
+
+        circled = re.search(r"[①②③④⑤]", text)
+        if circled:
+            return "①②③④⑤".index(circled.group(0))
+
+        return 0
