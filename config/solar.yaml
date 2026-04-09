@@ -1,0 +1,86 @@
+mode: train
+seed: 42
+exp_name: solar_baseline
+
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+
+dataset:
+  type: baseline
+  # run.py 구조상 train/evaluate가 같은 dataset.path를 사용합니다.
+  # train 기본값은 history_train.csv로 두고, eval 시에는 CLI override로 바꿔 사용합니다.
+  path: data/history_train.csv
+  split_ratio: 0.8
+
+  preprocess:
+    train:
+      add_generation_prompt: false
+      filter_over_length: true
+      truncation: true
+    inference:
+      add_generation_prompt: true
+      filter_over_length: false
+      truncation: true
+    evaluate:
+      add_generation_prompt: true
+      filter_over_length: false
+      truncation: true
+      exclude_answer_from_prompt: true
+
+prompt:
+  name: base
+
+model:
+  type: unsloth
+  model_name_or_path: "upstage/SOLAR-10.7B-Instruct-v1.0"
+  max_seq_length: 2048
+  load_in_4bit: true
+  use_peft: true
+
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  lora_bias: "none"
+
+training:
+  output_dir: output/solar
+  num_train_epochs: 2
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 1e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  logging_steps: 1
+  save_strategy: "epoch"
+  eval_strategy: "no"
+  save_total_limit: 2
+  save_only_model: true
+  fp16: false
+  bf16: true
+  packing: false
+  report_to: "none"
+
+inference:
+  max_new_tokens: 1
+  batch_size: 1
+  test_dataset_path: data/history_test.csv
+  model_load_path: output/solar
+  output_path: output/solar_output.csv
+
+evaluate:
+  model_load_path: output/solar
+  eval_output_path: output/solar_eval_results.csv
+
+rag:
+  use: false
+  top_k: 3
+  bm25_k: 10
+  vec_k: 10
+  weight_bm25: 0.7
+  weight_vec: 0.3
