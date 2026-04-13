@@ -11,7 +11,7 @@ dataset:
   type: baseline
   # run.py 구조상 train/evaluate가 같은 dataset.path를 사용합니다.
   # train 기본값은 history_train.csv로 두고, eval 시에는 CLI override로 바꿔 사용합니다.
-  path: data/history_train_aug.csv
+  path: data/history_train_390.csv
   split_ratio: 0.8
 
   preprocess:
