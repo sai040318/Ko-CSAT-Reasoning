@@ -20,12 +20,14 @@ class WikipediaRetriever(BaseRetriever):
         lang: str = "ko",
         top_k: int = 3,
         timeout: int = 10,
+        user_agent: str = "Ko-CSAT-Reasoning/0.1 (contact: research@example.com)",
         **kwargs: Any,
     ):
         super().__init__(data_path=f"https://{lang}.wikipedia.org", **kwargs)
         self.lang = lang
         self.top_k = top_k
         self.timeout = timeout
+        self.user_agent = user_agent
         self.api_base = f"https://{lang}.wikipedia.org/w/api.php"
 
     def build_index(self):
@@ -75,7 +77,8 @@ class WikipediaRetriever(BaseRetriever):
             "srlimit": top_k,
             "srsearch": query,
         }
-        resp = requests.get(self.api_base, params=params, timeout=self.timeout)
+        headers = {"User-Agent": self.user_agent}
+        resp = requests.get(self.api_base, params=params, timeout=self.timeout, headers=headers)
         resp.raise_for_status()
         data = resp.json()
         return data.get("query", {}).get("search", []) or []
@@ -92,7 +95,8 @@ class WikipediaRetriever(BaseRetriever):
             "exintro": 1,
             "inprop": "url",
         }
-        resp = requests.get(self.api_base, params=params, timeout=self.timeout)
+        headers = {"User-Agent": self.user_agent}
+        resp = requests.get(self.api_base, params=params, timeout=self.timeout, headers=headers)
         resp.raise_for_status()
         data = resp.json()
         return data.get("query", {}).get("pages", {}) or {}

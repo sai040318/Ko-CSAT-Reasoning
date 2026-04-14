@@ -20,7 +20,7 @@ from src.utils.utils import set_seed
 import src.model  
 import src.data  
 from src.rag.rag_pipeline import RAGPipeline, HistoryClassifier
-from src.retrieval import EnsembleRetriever
+from src.retrieval import EnsembleRetriever, WikipediaRetriever
 
 # Hydra를 통해 설정 파일을 로드합니다.
 @hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
@@ -63,14 +63,20 @@ def main(cfg: DictConfig):
                 dataset.load_data()
 
             history_classifier = HistoryClassifier(model.model, tokenizer)
-            retriever = EnsembleRetriever(
-                corpus_path="src/corpus/corpus.json",
-                bm25_k=cfg.rag.get("bm25_k", 10),
-                vec_k=cfg.rag.get("vec_k", 10),
-                top_k=cfg.rag.get("top_k", 5),
-                weight_bm25=cfg.rag.get("weight_bm25", 0.5),
-                weight_vec=cfg.rag.get("weight_vec", 0.5),
-            )
+            if cfg.rag.get("retriever", "").lower() == "wikipedia":
+                retriever = WikipediaRetriever(
+                    lang=cfg.rag.get("wiki_lang", "ko"),
+                    top_k=cfg.rag.get("top_k", 5),
+                )
+            else:
+                retriever = EnsembleRetriever(
+                    corpus_path="src/corpus/corpus.json",
+                    bm25_k=cfg.rag.get("bm25_k", 10),
+                    vec_k=cfg.rag.get("vec_k", 10),
+                    top_k=cfg.rag.get("top_k", 5),
+                    weight_bm25=cfg.rag.get("weight_bm25", 0.5),
+                    weight_vec=cfg.rag.get("weight_vec", 0.5),
+                )
             rag_pipeline = RAGPipeline(
                 corpus_path="src/corpus/corpus.json",
                 top_k=cfg.rag.get("top_k", 5),
@@ -177,14 +183,20 @@ def main(cfg: DictConfig):
             if getattr(test_dataset, "dataset", None) is None:
                 test_dataset.load_data()
 
-            retriever = EnsembleRetriever(
-                corpus_path="src/corpus/corpus.json",
-                bm25_k=cfg.rag.get("bm25_k", 10),
-                vec_k=cfg.rag.get("vec_k", 10),
-                top_k=cfg.rag.get("top_k", 5),
-                weight_bm25=cfg.rag.get("weight_bm25", 0.5),
-                weight_vec=cfg.rag.get("weight_vec", 0.5),
-            )
+            if cfg.rag.get("retriever", "").lower() == "wikipedia":
+                retriever = WikipediaRetriever(
+                    lang=cfg.rag.get("wiki_lang", "ko"),
+                    top_k=cfg.rag.get("top_k", 5),
+                )
+            else:
+                retriever = EnsembleRetriever(
+                    corpus_path="src/corpus/corpus.json",
+                    bm25_k=cfg.rag.get("bm25_k", 10),
+                    vec_k=cfg.rag.get("vec_k", 10),
+                    top_k=cfg.rag.get("top_k", 5),
+                    weight_bm25=cfg.rag.get("weight_bm25", 0.5),
+                    weight_vec=cfg.rag.get("weight_vec", 0.5),
+                )
             rag_pipeline = RAGPipeline(
                 corpus_path="src/corpus/corpus.json",
                 top_k=cfg.rag.get("top_k", 5),
@@ -274,14 +286,20 @@ def main(cfg: DictConfig):
                 dataset.load_data()
 
             history_classifier = HistoryClassifier(model.model, tokenizer)
-            retriever = EnsembleRetriever(
-                corpus_path="src/corpus/corpus.json",
-                bm25_k=cfg.rag.get("bm25_k", 10),
-                vec_k=cfg.rag.get("vec_k", 10),
-                top_k=cfg.rag.get("top_k", 5),
-                weight_bm25=cfg.rag.get("weight_bm25", 0.5),
-                weight_vec=cfg.rag.get("weight_vec", 0.5),
-            )
+            if cfg.rag.get("retriever", "").lower() == "wikipedia":
+                retriever = WikipediaRetriever(
+                    lang=cfg.rag.get("wiki_lang", "ko"),
+                    top_k=cfg.rag.get("top_k", 5),
+                )
+            else:
+                retriever = EnsembleRetriever(
+                    corpus_path="src/corpus/corpus.json",
+                    bm25_k=cfg.rag.get("bm25_k", 10),
+                    vec_k=cfg.rag.get("vec_k", 10),
+                    top_k=cfg.rag.get("top_k", 5),
+                    weight_bm25=cfg.rag.get("weight_bm25", 0.5),
+                    weight_vec=cfg.rag.get("weight_vec", 0.5),
+                )
             rag_pipeline = RAGPipeline(
                 corpus_path="src/corpus/corpus.json",
                 top_k=cfg.rag.get("top_k", 5),
