@@ -2,7 +2,7 @@ import torch
 import pandas as pd
 from ast import literal_eval
 from tqdm import tqdm
-from src.retrieval import EnsembleRetriever
+from src.retrieval import EnsembleRetriever , wiki_retriever
 from unsloth import FastLanguageModel
 # =====================================================
 # HistoryClassifier (2-stage LLM Gate)
@@ -128,7 +128,7 @@ class RAGPipeline:
         self,
         corpus_path: str,
         top_k: int = 3,
-        retriever: EnsembleRetriever | None = None,
+        retriever: wiki_retriever | None = None,
     ):
         self.corpus_path = corpus_path
         self.top_k = top_k
@@ -212,8 +212,8 @@ if __name__ == "__main__":
 
     data_path = "src/data/train.csv"
     df = pd.read_csv(data_path)
-    retriever = EnsembleRetriever(top_k=5)
-    # 외부에서 EnsembleRetriever 주입 필요
+    retriever = wiki_retriever(top_k=5)
+    # 외부에서 wiki_retriever 주입 필요
     rag = RAGPipeline(corpus_path="src/corpus/corpus.json", retriever=retriever)
     df_with_docs = rag.add_documents_to_df(df, history_classifier)
 
