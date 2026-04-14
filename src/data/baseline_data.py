@@ -36,7 +36,7 @@ class BaselineDataset(BaseDataset):
                 "paragraph": row["paragraph"],
                 "question": problems["question"],
                 "choices": problems["choices"],
-                "answer": problems.get("answer", None),
+                "answer": self._normalize_answer(problems.get("answer", None)),
                 "question_plus": problems.get("question_plus", None),
                 "documents": row["documents"] if "documents" in df.columns else None,
             }
@@ -112,3 +112,17 @@ class BaselineDataset(BaseDataset):
             filtered_len = len(processed_dataset["train"])
 
         return processed_dataset
+
+    @staticmethod
+    def _normalize_answer(value: Any) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, (int, np.integer)):
+            return int(value)
+        if isinstance(value, float):
+            return int(value) if value.is_integer() else None
+        if isinstance(value, str):
+            v = value.strip()
+            if v.isdigit():
+                return int(v)
+        return None
