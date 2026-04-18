@@ -19,8 +19,18 @@ from src.utils.utils import set_seed
 
 import src.model  
 import src.data  
-from src.rag.rag_pipeline import RAGPipeline, HistoryClassifier
 from src.retrieval import EnsembleRetriever, WikipediaRetriever
+
+
+def get_rag_components(cfg: DictConfig):
+    retriever_name = cfg.get("rag", {}).get("retriever", "").lower()
+
+    if retriever_name == "wikipedia":
+        from src.rag.rag_wiki_pipeline import RAGPipeline, HistoryClassifier
+    else:
+        from src.rag.rag_pipeline import RAGPipeline, HistoryClassifier
+
+    return RAGPipeline, HistoryClassifier
 
 # Hydra를 통해 설정 파일을 로드합니다.
 @hydra.main(version_base=None, config_path=str(project_root / "config"), config_name="config")
@@ -62,6 +72,7 @@ def main(cfg: DictConfig):
             if getattr(dataset, "dataset", None) is None:
                 dataset.load_data()
 
+            RAGPipeline, HistoryClassifier = get_rag_components(cfg)
             history_classifier = HistoryClassifier(model.model, tokenizer)
             if cfg.rag.get("retriever", "").lower() == "wikipedia":
                 retriever = WikipediaRetriever(
@@ -175,6 +186,7 @@ def main(cfg: DictConfig):
         test_dataset = test_dataset_cls(test_dataset_path)
 
         ### RAG부분 ###
+        RAGPipeline, HistoryClassifier = get_rag_components(cfg)
         history_classifier = HistoryClassifier(model.model, tokenizer)
         # rag 설정이 있고 use가 True일 때만 retriever 주입
         if cfg.get("rag", {}).get("use", False):
@@ -285,6 +297,7 @@ def main(cfg: DictConfig):
             if getattr(dataset, "dataset", None) is None:
                 dataset.load_data()
 
+            RAGPipeline, HistoryClassifier = get_rag_components(cfg)
             history_classifier = HistoryClassifier(model.model, tokenizer)
             if cfg.rag.get("retriever", "").lower() == "wikipedia":
                 retriever = WikipediaRetriever(
