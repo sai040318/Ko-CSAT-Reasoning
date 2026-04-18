@@ -235,12 +235,25 @@ class UnslothModel(BaseModel):
 
     @staticmethod
     def _extract_choice_index(text: str) -> int:
-        match = re.search(r"\b([1-5])\b", text)
-        if match:
-            return int(match.group(1)) - 1
+        stripped = text.strip()
 
-        circled = re.search(r"[①②③④⑤]", text)
-        if circled:
-            return "①②③④⑤".index(circled.group(0))
+        # 생성 직후 첫 토큰만 정답으로 간주한다.
+        leading_digit = re.match(r"^([1-5])(?:\s|[-:.)]|$)", stripped)
+        if leading_digit:
+            return int(leading_digit.group(1)) - 1
+
+        leading_circled = re.match(r"^([①②③④⑤])", stripped)
+        if leading_circled:
+            return "①②③④⑤".index(leading_circled.group(1))
+
+        first_line = stripped.splitlines()[0].strip() if stripped else ""
+
+        line_digit = re.match(r"^([1-5])(?:\s|[-:.)]|$)", first_line)
+        if line_digit:
+            return int(line_digit.group(1)) - 1
+
+        line_circled = re.match(r"^([①②③④⑤])", first_line)
+        if line_circled:
+            return "①②③④⑤".index(line_circled.group(1))
 
         return 0
