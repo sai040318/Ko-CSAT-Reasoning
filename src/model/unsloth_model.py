@@ -198,8 +198,16 @@ class UnslothModel(BaseModel):
         return predictions
 
     def save_model(self, save_path: str):
+        import json
+        from pathlib import Path as _Path
+        _Path(save_path).mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(save_path)
         self.tokenizer.save_pretrained(save_path)
+        # Unsloth 버전에 따라 adapter_config.json이 저장되지 않을 수 있으므로 직접 보장
+        adapter_config_path = _Path(save_path) / "adapter_config.json"
+        if not adapter_config_path.exists() and hasattr(self.model, "peft_config"):
+            config = list(self.model.peft_config.values())[0]
+            adapter_config_path.write_text(json.dumps(config.to_dict(), indent=2))
 
     def load_model(self, load_path: str):
         """

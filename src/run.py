@@ -118,7 +118,7 @@ def main(cfg: DictConfig):
                         "choices": problems.get("choices", []),
                         "answer": int(problems["answer"]) if problems.get("answer") is not None else None,
                         "question_plus": problems.get("question_plus", None),
-                        "documents": row.get("documents", None),
+                        "documents": None,  # paragraph에 이미 삽입됨 — 외부문서 이중 주입 방지
                     }
                 )
             dataset.dataset["train"] = HFDataset.from_pandas(pd.DataFrame(records))
@@ -240,7 +240,7 @@ def main(cfg: DictConfig):
                         "choices": problems.get("choices", []),
                         "answer": int(problems["answer"]) if problems.get("answer") is not None else None,
                         "question_plus": problems.get("question_plus", None),
-                        "documents": row.get("documents", None),
+                        "documents": None,  # paragraph에 이미 삽입됨 — 외부문서 이중 주입 방지
                     }
                 )
             ds = HFDataset.from_pandas(pd.DataFrame(records))
@@ -343,7 +343,7 @@ def main(cfg: DictConfig):
                         "choices": problems.get("choices", []),
                         "answer": int(problems["answer"]) if problems.get("answer") is not None else None,
                         "question_plus": problems.get("question_plus", None),
-                        "documents": row.get("documents", None),
+                        "documents": None,  # paragraph에 이미 삽입됨 — 외부문서 이중 주입 방지
                     }
                 )
             dataset.dataset["train"] = HFDataset.from_pandas(pd.DataFrame(records))
