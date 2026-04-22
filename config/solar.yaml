@@ -80,9 +80,8 @@ evaluate:
 
 rag:
   use: true
-  # retriever: ensemble   # 기본값 (BM25 + FAISS)
-  retriever: wikipedia  # 위키백과 API 사용
-  # wiki_lang: ko
+  retriever: ensemble
+  # retriever: wikipedia
   top_k: 3
   bm25_k: 10
   vec_k: 10
