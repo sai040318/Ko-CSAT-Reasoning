@@ -169,9 +169,10 @@ def main(cfg: DictConfig):
         model_load_path = cfg.inference.get("model_load_path", cfg.training.output_dir)
         if not os.path.exists(model_load_path):
             raise ValueError(f"모델 경로를 찾을 수 없습니다: {model_load_path}")
-        # 체크포인트 디렉토리가 여러 개일 경우 가장 마지막 것을 로드
+        # adapter_config.json 있는 checkpoint 중 마지막 것을 우선 사용
+        # Unsloth checkpoint-N/에 adapter_config.json이 없으면 save_model()로 저장된 루트 경로 사용
         p = Path(model_load_path)
-        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
+        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir() and (d / "adapter_config.json").exists()]
         if ckpts:
             ckpts.sort(
                 key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1))
@@ -361,8 +362,10 @@ def main(cfg: DictConfig):
 
         model_load_path = cfg.evaluate.get("model_load_path", cfg.training.output_dir)
 
+        # adapter_config.json 있는 checkpoint 중 마지막 것을 우선 사용
+        # Unsloth checkpoint-N/에 adapter_config.json이 없으면 save_model()로 저장된 루트 경로 사용
         p = Path(model_load_path)
-        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir()]
+        ckpts = [d for d in p.glob("checkpoint-*") if d.is_dir() and (d / "adapter_config.json").exists()]
         if ckpts:
             ckpts.sort(
                 key=lambda d: int(re.search(r"checkpoint-(\d+)", d.name).group(1))
