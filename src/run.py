@@ -116,7 +116,7 @@ def main(cfg: DictConfig):
                         "paragraph": row["paragraph"],
                         "question": problems.get("question", ""),
                         "choices": problems.get("choices", []),
-                        "answer": problems.get("answer", None),
+                        "answer": int(problems["answer"]) if problems.get("answer") is not None else None,
                         "question_plus": problems.get("question_plus", None),
                         "documents": row.get("documents", None),
                     }
@@ -237,7 +237,7 @@ def main(cfg: DictConfig):
                         "paragraph": row["paragraph"],
                         "question": problems.get("question", ""),
                         "choices": problems.get("choices", []),
-                        "answer": problems.get("answer", None),
+                        "answer": int(problems["answer"]) if problems.get("answer") is not None else None,
                         "question_plus": problems.get("question_plus", None),
                         "documents": row.get("documents", None),
                     }
@@ -340,7 +340,7 @@ def main(cfg: DictConfig):
                         "paragraph": row["paragraph"],
                         "question": problems.get("question", ""),
                         "choices": problems.get("choices", []),
-                        "answer": problems.get("answer", None),
+                        "answer": int(problems["answer"]) if problems.get("answer") is not None else None,
                         "question_plus": problems.get("question_plus", None),
                         "documents": row.get("documents", None),
                     }
