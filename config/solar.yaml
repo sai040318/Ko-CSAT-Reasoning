@@ -1,6 +1,7 @@
 mode: train
 seed: 42
 exp_name: solar_baseline
+wandb_project: ko-csat-reasoning
 
 hydra:
   output_subdir: null
@@ -64,7 +65,7 @@ training:
   fp16: false
   bf16: true
   packing: false
-  report_to: "none"
+  report_to: "wandb"
 
 inference:
   max_new_tokens: 1

@@ -1,4 +1,4 @@
-import unsloth 
+import unsloth
 import hydra
 import pandas as pd
 import os
@@ -6,6 +6,8 @@ import sys
 import re
 from pathlib import Path
 from ast import literal_eval
+
+import wandb
 
 # 프로젝트 루트를 sys.path에 추가
 project_root = Path(__file__).parent.parent
@@ -372,10 +374,33 @@ def main(cfg: DictConfig):
         
         metrics = model.evaluate(
             eval_dataset,
-            original_dataset_path=cfg.dataset.path, 
+            original_dataset_path=cfg.dataset.path,
             eval_output_path=cfg.evaluate.get("eval_output_path", "output/eval_results.csv")
         )
         print(f"평가 결과 : {metrics}")
+
+        rag_cfg = cfg.get("rag", {})
+        wandb.init(
+            project=cfg.get("wandb_project", "ko-csat-reasoning"),
+            name=cfg.get("exp_name", "eval"),
+            config={
+                "model": cfg.model.model_name_or_path,
+                "rag_use": rag_cfg.get("use", False),
+                "retriever": rag_cfg.get("retriever", "none"),
+                "top_k": rag_cfg.get("top_k", 0),
+                "weight_bm25": rag_cfg.get("weight_bm25", None),
+                "weight_vec": rag_cfg.get("weight_vec", None),
+                "dataset": cfg.dataset.path,
+            },
+            reinit=True,
+        )
+        wandb.log({
+            "accuracy": metrics["accuracy"],
+            "macro_f1": metrics["macro_f1"],
+            "correct": metrics["correct"],
+            "total": metrics["total"],
+        })
+        wandb.finish()
 
 
 if __name__ == "__main__":
